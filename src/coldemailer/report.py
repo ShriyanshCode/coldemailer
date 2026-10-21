@@ -99,8 +99,7 @@ def overview(conn, settings, day_from: str | None = None, day_to: str | None = N
     mbs = conn.execute("SELECT * FROM mailboxes").fetchall()
     capacity = sum(policies.warmup_limit(m, d) for d in _days(day_from, day_to) for m in mbs)
     contacted = _one(conn, "SELECT COUNT(DISTINCT contact_id) FROM sends WHERE state='sent'")
-    genuine = _one(conn, "SELECT COUNT(DISTINCT contact_id) FROM replies "
-                         "WHERE classification IS NULL OR classification != 'out_of_office'")
+    genuine = counts.get("replied", 0)  # the same set the "Replied" drawer lists
     due = conn.execute(
         "SELECT next_action a, SUM(next_action_at < ?) today, SUM(next_action_at >= ? AND next_action_at < ?) tmrw "
         "FROM contacts WHERE next_action IS NOT NULL AND hold_reason IS NULL GROUP BY next_action", (t1, t1, m1))

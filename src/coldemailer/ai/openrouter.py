@@ -48,7 +48,7 @@ class LLMClient:
         self.cooldown: dict[str, float] = {}
         self.jitter = random.Random(0)
         self.http = httpx.Client(
-            base_url=BASE_URL, transport=transport, timeout=60,
+            base_url=BASE_URL, transport=transport, timeout=30,
             headers={"Authorization": f"Bearer {settings.openrouter_api_key or ''}",
                      "HTTP-Referer": "https://github.com/ShriyanshCode/coldemailer",
                      "X-Title": "coldemailer"})
@@ -70,17 +70,19 @@ class LLMClient:
     def chat(self, messages: list[dict], purpose: str, max_tokens: int = 2500,
              patient: bool = False) -> tuple[str, str] | None:
         """patient=True (offline batch jobs) waits out model cool-downs once instead of giving up."""
-        answer = self._chat_once(messages, purpose, max_tokens)
+        answer = self._chat_once(messages, purpose, max_tokens, patient)
         if answer is None and patient and self.models:
             wait = min(self.cooldown.get(m, 0) for m in self.models) - self.now()
             if wait > 0:
                 self.sleep(min(wait, 120))
-            answer = self._chat_once(messages, purpose, max_tokens)
+            answer = self._chat_once(messages, purpose, max_tokens, patient)
         if answer is None:
             self._log_fallback(purpose)
         return answer
 
-    def _chat_once(self, messages, purpose, max_tokens) -> tuple[str, str] | None:
+    def _chat_once(self, messages, purpose, max_tokens, patient: bool) -> tuple[str, str] | None:
+        """Inside a cycle (not patient) never sleep: a 429 puts the model on cool-down for Retry-After
+        and the next model is tried at once. Patient batch jobs retry with back-off."""
         for model in self.models:
             if self.cooldown.get(model, 0) > self.now():
                 continue
@@ -94,6 +96,8 @@ class LLMClient:
                 except httpx.HTTPError:
                     retry_of = self._log(model, purpose, "error", None, int((time.perf_counter() - t0) * 1000),
                                          retry_of)
+                    if not patient:
+                        break
                     self.sleep(2 ** attempt + self.jitter.random())
                     continue
                 latency = int((time.perf_counter() - t0) * 1000)
@@ -113,13 +117,16 @@ class LLMClient:
                         wait = float(resp.headers.get("Retry-After", ""))
                     except ValueError:
                         wait = 2 ** attempt + self.jitter.random()
+                    if not patient:
+                        self.cooldown[model] = self.now() + max(wait, 1)
+                        break
                     self.sleep(min(wait, 60))
                     continue
                 retry_of = self._log(model, purpose, "error", resp.status_code, latency, retry_of)
-                if 400 <= resp.status_code < 500:
-                    break  # bad request / unknown model: retrying won't help
+                if 400 <= resp.status_code < 500 or not patient:
+                    break  # bad request / unknown model, or no time to wait inside a cycle
                 self.sleep(2 ** attempt + self.jitter.random())
-            self.cooldown[model] = self.now() + self.s.llm_cooldown_s
+            self.cooldown[model] = max(self.cooldown.get(model, 0), self.now() + self.s.llm_cooldown_s)
         return None
 
     def _log_fallback(self, purpose: str) -> None:

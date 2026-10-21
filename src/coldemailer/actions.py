@@ -67,7 +67,8 @@ def resume_mailbox(conn, mailbox_id: int) -> None:
             raise ValueError(f"mailbox {mailbox_id} not found")
         if not mb["paused"]:
             raise ValueError(f"mailbox {mb['address']} is not paused")
-        conn.execute("UPDATE mailboxes SET paused=0, paused_reason=NULL, paused_at=NULL WHERE id=?", (mailbox_id,))
+        conn.execute("UPDATE mailboxes SET paused=0, paused_reason=NULL, paused_at=NULL, resumed_at=? WHERE id=?",
+                     (now, mailbox_id))
         engine.event(conn, "mailbox_resumed", now, mailbox_id=mailbox_id, mailbox=mb["address"], actor="operator")
         engine.event(conn, "human_action", now, mailbox_id=mailbox_id, actor="operator",
                      action=f"Mailbox resumed: {mb['address']}")

@@ -15,12 +15,13 @@ const LISTS = {
   due_today: ['Due today', "Next step scheduled for today (including overdue), waiting for the prospect's window and mailbox capacity.", { due: 'today' }],
   due_tomorrow: ['Due tomorrow', 'Next step scheduled for tomorrow.', { due: 'tomorrow' }],
   ooo: ['Paused for out of office', 'Replied with an out-of-office message. The sequence continues after the return date.', { ooo: 'yes' }],
-  sent: ['Sent', 'Emails accepted by the mock provider in the selected range, newest first.', null],
+  sent: ['Sent', 'Emails accepted by the mock provider in the selected range, newest first.', null, 'sent'],
+  bounced_range: ['Hard bounces', 'Hard bounces in the selected range, newest first. Suppressed, never retried.', null, 'hard_bounced'],
 };
 
 function ContactList({ listKey }) {
   const { openContact, range, rev } = useApp();
-  const [title, desc, params] = LISTS[listKey];
+  const [title, desc, params, eventType] = LISTS[listKey];
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(null);
   const [cursor, setCursor] = useState(0);
@@ -31,7 +32,7 @@ function ContactList({ listKey }) {
         setRows(r => (reset ? d.rows : [...r, ...d.rows])); setTotal(d.total); setCursor(page + 1);
       });
     } else {
-      get('events', { type: 'sent', day_from: range.from, day_to: range.to, limit: 25, before: reset ? undefined : cursor })
+      get('events', { type: eventType, day_from: range.from, day_to: range.to, limit: 25, before: reset ? undefined : cursor })
         .then(d => {
           const mapped = d.rows.map(e => ({ id: e.contact_id, name: e.email, company: e.text, note: e.at_ist }));
           setRows(r => (reset ? mapped : [...r, ...mapped])); setTotal(d.total); setCursor(d.next);

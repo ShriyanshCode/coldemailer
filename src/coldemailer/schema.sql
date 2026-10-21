@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS mailboxes (
     paused             INTEGER NOT NULL DEFAULT 0,
     paused_reason      TEXT,
     paused_at          TEXT,
+    resumed_at         TEXT,                -- auto-pause only judges attempts after this
     last_sent_at       TEXT
 );
 
@@ -203,6 +204,13 @@ CREATE TABLE IF NOT EXISTS cycles (
     held             INTEGER NOT NULL,
     duration_ms      INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS deferred_daily (   -- dedupe key for 'deferred' events
+    contact_id  INTEGER NOT NULL,
+    day         TEXT NOT NULL,
+    reason      TEXT NOT NULL,
+    PRIMARY KEY (contact_id, day, reason)
+) WITHOUT ROWID;
 
 CREATE TABLE IF NOT EXISTS jobs (
     id           INTEGER PRIMARY KEY,

@@ -1,4 +1,5 @@
-"""HTTP API for the dashboard. Same modules as the CLI; writes take the same run lock."""
+"""HTTP API for the dashboard. Same modules as the CLI. Advancing the clock takes the run lock; operator actions
+(resolve, resume, suppress) are single transactions, and the engine never revives a contact they stopped."""
 from __future__ import annotations
 
 from pathlib import Path

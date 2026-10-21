@@ -258,13 +258,18 @@ def _defer(pending: list, stats: CycleStats, c, reason: str, day: str, at: str) 
 
 
 def _flush_deferred(conn, pending: list) -> None:
+    """One 'deferred' event per contact, IST day and reason (deferred_daily is the dedupe key);
+    last_deferred_day is only a cheap fast path for the common repeat."""
     if not pending:
         return
     with db.tx(conn):
         conn.executemany("UPDATE contacts SET last_deferred_day=? WHERE id=?", [(p[2], p[0]) for p in pending])
-        conn.executemany(
-            "INSERT INTO events(contact_id, type, detail, occurred_at) VALUES (?, 'deferred', ?, ?)",
-            [(p[0], json.dumps({"reason": p[1], "step": p[4]}), p[3]) for p in pending])
+        for cid, reason, key, at, step in pending:
+            day = key.split(":", 1)[0]
+            if conn.execute("INSERT OR IGNORE INTO deferred_daily(contact_id, day, reason) VALUES (?,?,?)",
+                            (cid, day, reason)).rowcount:
+                conn.execute("INSERT INTO events(contact_id, type, detail, occurred_at) VALUES (?, 'deferred', ?, ?)",
+                             (cid, json.dumps({"reason": reason, "step": step}), at))
     pending.clear()
 
 
@@ -325,10 +330,10 @@ def _bulk_defer(conn, cap, action: str, last: tuple, sim_to: str, day: str, stat
         return
     stats.deferred[reason] = stats.deferred.get(reason, 0) + n
     with db.tx(conn):
+        conn.execute(f"UPDATE contacts SET last_deferred_day=? WHERE {where}", (f"{day}:{reason}", *args))
         ids = conn.execute(
-            f"UPDATE contacts SET last_deferred_day=? WHERE {where} AND "
-            f"(last_deferred_day IS NULL OR last_deferred_day != ?) RETURNING id",
-            (f"{day}:{reason}", *args, f"{day}:{reason}")).fetchall()
+            f"INSERT OR IGNORE INTO deferred_daily(contact_id, day, reason) SELECT id, ?, ? FROM contacts "
+            f"WHERE {where} RETURNING contact_id AS id", (day, reason, *args)).fetchall()
         detail = json.dumps({"reason": reason, "step": lifecycle.action_step(action)})
         conn.executemany("INSERT INTO events(contact_id, type, detail, occurred_at) VALUES (?, 'deferred', ?, ?)",
                          [(r["id"], detail, sim_to) for r in ids])
@@ -409,10 +414,15 @@ def _finalize(conn, settings, cap, c, send_id: int, attempt_id: int, step: int, 
                                           settings.window_start, settings.window_end)
             conn.execute("UPDATE sends SET state='sent', sent_at=?, mailbox_id=?, provider_message_id=? WHERE id=?",
                          (slot, mb_id, key[:24], send_id))
+            # The email went out, so the step counts. But if the contact was stopped while this send was in
+            # flight (a reply ingested before crash recovery, an operator suppressing it), only the step is
+            # recorded: the status stays terminal and nothing new is scheduled.
+            conn.execute("UPDATE contacts SET step=?, mailbox_id=?, claimed_by=NULL, claim_expires_at=NULL, "
+                         "updated_at=? WHERE id=?", (step, mb_id, slot, c["id"]))
             conn.execute(
-                "UPDATE contacts SET step=?, status=?, next_action=?, next_action_at=?, mailbox_id=?, "
-                "claimed_by=NULL, claim_expires_at=NULL, ooo_until=NULL, updated_at=? WHERE id=?",
-                (step, lifecycle.STATUS_BY_STEP[step], lifecycle.next_action_after(step), nxt, mb_id, slot, c["id"]))
+                "UPDATE contacts SET status=?, next_action=?, next_action_at=?, ooo_until=NULL WHERE id=? "
+                "AND status IN ('new','first_sent','follow_up_1_sent','follow_up_2_sent','follow_up_3_sent')",
+                (lifecycle.STATUS_BY_STEP[step], lifecycle.next_action_after(step), nxt, c["id"]))
             event(conn, "sent", slot, c["id"], send_id, mb_id, step=step, mailbox=mb_addr)
             stats.sent += 1
             return
@@ -427,7 +437,8 @@ def _finalize(conn, settings, cap, c, send_id: int, attempt_id: int, step: int, 
             ev = event(conn, "hard_bounced", slot, c["id"], send_id, mb_id, step=step,
                        smtp_code=result.smtp_code, message=result.message)
             suppress(conn, c["email"], "hard_bounce", slot, ev)
-            stop(conn, c["id"], "bounced", slot)
+            if conn.execute("SELECT status FROM contacts WHERE id=?", (c["id"],)).fetchone()[0] not in lifecycle.TERMINAL:
+                stop(conn, c["id"], "bounced", slot)
             stats.bounces += 1
             return
 
@@ -439,6 +450,8 @@ def _finalize(conn, settings, cap, c, send_id: int, attempt_id: int, step: int, 
         event(conn, "soft_bounced", slot, c["id"], send_id, mb_id, step=step, attempt=n,
               smtp_code=result.smtp_code, message=result.message)
         stats.soft_bounces += 1
+        if conn.execute("SELECT status FROM contacts WHERE id=?", (c["id"],)).fetchone()[0] in lifecycle.TERMINAL:
+            return  # stopped while in flight: nothing to retry or review
         if policy or n >= settings.max_soft_attempts:
             reason = "policy_rejection" if policy else "repeated_soft_bounce"
             conn.execute("UPDATE contacts SET hold_reason=? WHERE id=?", (reason, c["id"]))
@@ -485,6 +498,8 @@ def run_cycle(conn, settings, sim_from: str, sim_to: str, llm=None, owner: str =
     cap = policies.Capacity.load(conn, settings, sim_from, sim_to)  # recovery may have used capacity
     touched = _send_due(conn, settings, provider, cap, sim_from, sim_to, stats, owner)
     _autopause(conn, settings, touched, sim_to)
+    from . import clock
+    clock.refresh_run_lock(conn, owner)  # long cycles keep the lock
     stats.classified = classify.backlog(conn, settings, llm, now=sim_to)
 
     stats.duration_ms = int((time.perf_counter() - t0) * 1000)

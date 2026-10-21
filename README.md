@@ -32,7 +32,7 @@ python -m coldemailer report
 python -m coldemailer serve
 ```
 
-Run the tests with `pytest -q` (65 tests, about 6 seconds).
+Run the tests with `pytest -q` (74 tests, about 7 seconds).
 
 ## Commands
 
@@ -110,7 +110,7 @@ new → first_sent → follow_up_1_sent → follow_up_2_sent → follow_up_3_sen
 
 - **Waits** are 3 / 5 / 7 days between steps, then 7 days after follow-up 3 before deactivation. A wait is counted in the prospect's local calendar days. The next send is scheduled at a deterministic random minute inside their 09:00–18:00 window, which spreads sends across the day.
 - **A reply stops the sequence at once.** It's recorded, and the rules or the model label it interested, not interested or unsubscribe. "Not interested" also goes on the suppression list. An unsubscribe reply moves the contact to `unsubscribed`.
-- **Out-of-office is the one deliberate exception to the brief's "a reply stops the sequence".** An auto-reply isn't a human answer. So the reply is recorded and the next step is pushed to the return date found in the text (or +3 days, capped at +14). The contact stays at its step, and the dashboard shows these as "Paused for OOO".
+- **Out-of-office is the one deliberate exception to the brief's "a reply stops the sequence".** An auto-reply isn't a human answer. So the reply is recorded and the next step is pushed to the return date found in the text (or +3 days, capped at +14). The contact stays at its step, and the dashboard shows these as "Paused for OOO". This only applies when the text has no real answer in it. "On leave this week but interested" stops the sequence like any other reply.
 - **Hard bounce** → `bounced` plus suppression. The address is never retried.
 - **Unsubscribe link or complaint** → `unsubscribed` plus suppression. It's never contacted again; this is checked at claim time even if a row gets corrupted.
 - **Soft bounce (human in the loop).**
@@ -127,7 +127,7 @@ Each layer stops a different failure:
 1. **`UNIQUE(contact_id, step)` on `sends`.** The database itself refuses a second row for a step.
 2. **A claim lease, re-checked in the claim transaction.** `UPDATE contacts SET claimed_by=…, claim_expires_at=… WHERE id=? AND step=n-1 AND next_action='send_n' AND status is active AND not held AND not already claimed RETURNING *` runs under `BEGIN IMMEDIATE`. If a reply, bounce or hold changed the contact since the scan, the update matches nothing and the send is skipped. Suppression is checked again in the same transaction.
 3. **An idempotency key per attempt**, `sha256(contact:step:campaign:attempt)`. The mock provider dedupes on it the way a real ESP would, so retrying a "network call" that already succeeded changes nothing.
-4. **Crash recovery.** A send left in `claimed` after its lease expires is resolved by asking the provider whether that key was accepted, never by sending again. The tests simulate a crash right after the provider accepts, then show recovery finishing the step with exactly one acceptance.
+4. **Crash recovery.** A send left in `claimed` after its lease expires is resolved by asking the provider whether that key was accepted, never by sending again. The tests simulate a crash right after the provider accepts, then show recovery finishing the step with exactly one acceptance. If the contact replied, or an operator suppressed it, while that send was in flight, recovery records the email and stops there. It never brings a stopped contact back into the sequence.
 5. **A run lock.** Only one process advances the clock or runs a cycle at a time. A second CLI run or a double click in the UI gets "another run is in progress" (HTTP 409).
 6. **Ingest runs before the due scan** in every cycle, so a reply that arrives in the same hour a follow-up is due stops that follow-up.
 
@@ -172,10 +172,9 @@ Each layer stops a different failure:
   - Either way the contact has already stopped, so a model outage can't cause or block a send.
 - **Rate-limit handling.**
   - An in-process token bucket at 15 requests a minute.
-  - On a 429, wait for `Retry-After` (or exponential backoff with jitter), up to 3 tries per model.
-  - A model that keeps failing gets a 60-second cool-down and the next model in the chain is tried.
+  - Inside a cycle nothing ever sleeps. A 429 puts that model on cool-down for its `Retry-After` (at least 60 s), and the next model in the chain is tried at once.
+  - Offline batch jobs (`templates warm`) are patient instead: up to 3 tries per model with `Retry-After` or exponential back-off with jitter, and one wait for the earliest cool-down before giving up.
   - If the whole chain fails, write an `ai_fallback` event and use the static template or keyword label.
-  - Batch jobs (`templates warm`) wait out a cool-down once instead of giving up.
   - Every HTTP attempt is logged in `llm_calls` and as an `ai_call` event; the AI & Templates tab shows calls, 429s, retries and fallbacks per model.
   - In my runs Gemma 4 returned 429 almost every time, and the chain moved on to MiniMax automatically.
 
@@ -187,7 +186,7 @@ Each layer stops a different failure:
   - each mailbox keeps a minimum gap between sends (a 9-hour day divided by today's limit);
   - follow-ups keep the same mailbox so the email thread stays consistent, while first emails go to the mailbox with the most room left.
   - The "Sends per hour" chart shows the result.
-- **Auto-pause** triggers when a mailbox's bounce rate (hard bounces plus policy rejections) is over 5% across its last 200 attempts, or its complaint rate is over 0.3% across its last 2,000. Resuming is a human action.
+- **Auto-pause** triggers when a mailbox's bounce rate (hard bounces plus policy rejections) is over 5% across its last 200 attempts, or its complaint rate is over 0.3% across its last 2,000. Resuming is a human action, and after a resume only new attempts count, so the old bounces don't pause it again straight away.
 - **Suppression list**, an **unsubscribe link** in every body, and **`List-Unsubscribe` + `List-Unsubscribe-Post: One-Click`** headers on every send.
 - **Content checks** before every send, **sending windows** in the prospect's timezone, and a **per-recipient-domain cap** of 50 a day.
 
@@ -239,7 +238,7 @@ This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14
 
 ## Tests
 
-`pytest -q` runs 65 tests in about 6 seconds:
+`pytest -q` runs 74 tests in about 7 seconds:
 
 - **Lifecycle:** a full sequence through to deactivation, a reply stopping it, out-of-office pushing it, hard bounces, unsubscribes and complaints, soft-bounce retries through to review, and policy rejections.
 - **Exactly-once:** running the same clock twice, running the same interval twice, a crash after the provider accepted, a crash before it, a reply landing in the same cycle a follow-up is due, the run lock, the clock refusing to go backwards.
@@ -247,6 +246,7 @@ This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14
 - **Seed and verify:** the seed is deterministic, matches the status mix and has consistent history; `verify` passes after seeding and advancing and catches deliberate drift.
 - **AI:** 429 retries, the model chain and cool-downs, total failure, the token bucket, the rules classifier against the corpus, return-date parsing, batched LLM labelling and review, template validation. All of it uses mocked HTTP and a fake clock.
 - **API:** every endpoint, the job lock (409), and an empty database.
+- **Review regressions:** crash recovery not reviving a contact who replied or was suppressed, deferral dedupe when reasons alternate, a resumed mailbox judged only on new sends, no sleeping on a 429 inside a cycle, out-of-office with a real answer, and the reply KPI matching its drawer.
 
 ## Trade-offs, known limitations, what I'd build next
 

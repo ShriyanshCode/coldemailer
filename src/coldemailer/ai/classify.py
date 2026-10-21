@@ -28,6 +28,8 @@ def rules(body: str) -> tuple[str | None, float]:
     if UNSUB.search(body):
         return "unsubscribe", 1.0
     if OOO.search(body):
+        if NOT_INTERESTED.search(body) or INTERESTED.search(body):
+            return None, 0.0  # auto-reply marker plus a real answer: stop (safe side), let the model label it
         return "out_of_office", 1.0
     if NOT_INTERESTED.search(body):
         return "not_interested", 0.8

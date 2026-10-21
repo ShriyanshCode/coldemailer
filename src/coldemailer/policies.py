@@ -110,11 +110,13 @@ def gate(contact, slot: str, cap: Capacity, settings) -> tuple[str | None, str |
 
 
 def evaluate_autopause(conn, mailbox_id: int, settings) -> str | None:
-    """Reason to pause this mailbox, or None. Bounces = hard bounces + policy rejections."""
+    """Reason to pause this mailbox, or None. Bounces = hard bounces + policy rejections.
+    Only attempts after the last manual resume count, so a resumed mailbox gets a fresh sample."""
+    since = conn.execute("SELECT COALESCE(resumed_at, '') FROM mailboxes WHERE id=?", (mailbox_id,)).fetchone()[0]
     rows = conn.execute(
         "SELECT a.result, a.smtp_code FROM send_attempts a JOIN sends s ON s.id=a.send_id "
-        "WHERE s.mailbox_id=? AND a.result IN ('accepted','hard_bounce','soft_bounce') "
-        "ORDER BY a.at DESC, a.id DESC LIMIT ?", (mailbox_id, settings.autopause_window)).fetchall()
+        "WHERE s.mailbox_id=? AND a.at > ? AND a.result IN ('accepted','hard_bounce','soft_bounce') "
+        "ORDER BY a.at DESC, a.id DESC LIMIT ?", (mailbox_id, since, settings.autopause_window)).fetchall()
     if len(rows) >= settings.autopause_min_sample:
         bad = sum(1 for r in rows if r["result"] == "hard_bounce"
                   or (r["result"] == "soft_bounce" and provider_mock.is_policy_code(r["smtp_code"])))
@@ -123,13 +125,12 @@ def evaluate_autopause(conn, mailbox_id: int, settings) -> str | None:
             return f"bounce rate {rate:.1%} over {settings.autopause_bounce:.0%} threshold"
     sent = conn.execute(
         "SELECT COUNT(*) n FROM (SELECT a.id FROM send_attempts a JOIN sends s ON s.id=a.send_id "
-        "WHERE s.mailbox_id=? AND a.result='accepted' ORDER BY a.at DESC LIMIT ?)",
-        (mailbox_id, settings.autopause_complaint_window)).fetchone()["n"]
+        "WHERE s.mailbox_id=? AND a.at > ? AND a.result='accepted' ORDER BY a.at DESC LIMIT ?)",
+        (mailbox_id, since, settings.autopause_complaint_window)).fetchone()["n"]
     if sent >= settings.autopause_complaint_min_sample:
         complaints = conn.execute(
-            "SELECT COUNT(*) n FROM events WHERE mailbox_id=? AND type='complaint' AND id IN "
-            "(SELECT id FROM events WHERE mailbox_id=? AND type='complaint' ORDER BY occurred_at DESC LIMIT ?)",
-            (mailbox_id, mailbox_id, settings.autopause_complaint_window)).fetchone()["n"]
+            "SELECT COUNT(*) n FROM events WHERE mailbox_id=? AND type='complaint' AND occurred_at > ?",
+            (mailbox_id, since)).fetchone()["n"]
         rate = complaints / sent
         if rate > settings.autopause_complaint:
             return f"complaint rate {rate:.2%} over {settings.autopause_complaint:.1%} threshold"

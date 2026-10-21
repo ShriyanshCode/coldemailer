@@ -76,10 +76,12 @@ def inject(conn, contact_id: int, kind: str, at: str, body: str | None = None, l
 
 @pytest.fixture
 def force_results(monkeypatch):
-    """force_results([SendResult(...), ...]) — the provider answers these in order, then accepts."""
+    """force_results([SendResult(...), ...]) — the provider answers these in order, then behaves normally.
+    Calling it again replaces the script."""
+    real = provider_mock.MockProvider.send
+
     def install(results):
         queue = list(results)
-        real = provider_mock.MockProvider.send
 
         def send(self, key, send_id, contact_id, step, at, *args, **kwargs):
             if not queue:

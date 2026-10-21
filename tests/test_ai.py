@@ -41,7 +41,7 @@ def calls(conn):
 def test_429_retries_then_succeeds(conn, settings):
     responses = [httpx.Response(429, headers={"Retry-After": "2"}), ok("hello")]
     c, ft = client(conn, settings, lambda req: responses.pop(0))
-    assert c.chat([{"role": "user", "content": "hi"}], "template") == ("hello", "m1:free")
+    assert c.chat([{"role": "user", "content": "hi"}], "template", patient=True) == ("hello", "m1:free")
     assert calls(conn) == [("m1:free", "rate_limited"), ("m1:free", "ok")]
     assert 2.0 in ft.sleeps
 
@@ -52,6 +52,15 @@ def test_model_fallback_chain(conn, settings):
         return httpx.Response(429) if model == "m1:free" else ok("from m2")
     c, _ = client(conn, settings, handler)
     assert c.chat([{"role": "user", "content": "hi"}], "classify") == ("from m2", "m2:free")
+    assert calls(conn) == [("m1:free", "rate_limited"), ("m2:free", "ok")]  # in a cycle: no retries, move on
+
+
+def test_patient_calls_retry_each_model_before_falling_back(conn, settings):
+    def handler(req):
+        model = json.loads(req.content)["model"]
+        return httpx.Response(429) if model == "m1:free" else ok("from m2")
+    c, _ = client(conn, settings, handler)
+    assert c.chat([{"role": "user", "content": "hi"}], "template", patient=True) == ("from m2", "m2:free")
     assert calls(conn) == [("m1:free", "rate_limited")] * 3 + [("m2:free", "ok")]
 
 
@@ -73,7 +82,7 @@ def test_all_models_fail_returns_none_and_logs_fallback(conn, settings):
     c, _ = client(conn, settings, lambda req: httpx.Response(500))
     assert c.chat([{"role": "user", "content": "hi"}], "template") is None
     assert conn.execute("SELECT COUNT(*) FROM events WHERE type='ai_fallback'").fetchone()[0] == 1
-    assert len(calls(conn)) == 6
+    assert len(calls(conn)) == 2  # one try per model inside a cycle
 
 
 def test_unknown_model_is_not_retried(conn, settings):
