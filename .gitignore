@@ -10,3 +10,5 @@ __pycache__/
 # Local databases (templates.seed.json is committed)
 data/*.db
 data/*.db-*
+*.egg-info/
+build/

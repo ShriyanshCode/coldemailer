@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coldemailer"
+version = "0.1.0"
+description = "Cold-email outreach engine that never loses track of a contact"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn>=0.32,<0.33",
+    "httpx>=0.27,<0.28",
+    "faker>=30,<31",
+    "python-dotenv>=1.0,<1.1",
+    "tzdata",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+coldemailer = "coldemailer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+coldemailer = ["schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
