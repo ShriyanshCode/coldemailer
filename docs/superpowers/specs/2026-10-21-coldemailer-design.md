@@ -222,6 +222,19 @@ pytest, on small seeds and in-memory/temp DBs:
 
 README reports wall time for seed, a full-campaign advance (e.g. 45 simulated days) on 10k, final counts, and a 100k sanity run. Throughput is bounded by warm-up limits by design (10 mailboxes ramping to e.g. 300/day), which the README explains.
 
+## 14a. Soft bounces and human-in-the-loop review (user decision)
+
+Soft bounces get a human in the loop when the system can't safely decide.
+
+- **Mock provider** also returns soft bounces (default 2%) with realistic SMTP codes: transient (`421` try later, `450` greylisted, `452` mailbox full) and ambiguous policy rejections (`550 5.7.1` blocked as spam/policy, `554` content rejected).
+- **Transient** → automatic retry of the *same step* after backoff (1h → 4h → 24h, inside the prospect's window). After 3 soft bounces on the same step → **review**.
+- **Ambiguous / policy** → **review** immediately (could be a reputation or content problem, not a bad address). Also counted against the mailbox for auto-pause.
+- **Review = hold.** Contact gets `hold_reason`; held contacts are excluded from the due index (`… WHERE next_action IS NOT NULL AND hold_reason IS NULL`). Status/step unchanged. A `review_items` row (`id`, `contact_id`, `send_id`, `kind`, `reason`, `detail` (SMTP code/message, attempts), `created_at`, `resolved_at`, `resolution`, `note`) is created, plus a `needs_review` event.
+- **Human actions** (API + dashboard): *Retry now*, *Retry later (+N days)*, *Mark bounced* (→ `bounced` + suppression), *Suppress* (→ suppression, status `unsubscribed` reason `manual`). Each writes a `human_action` event with who/when.
+- **Also in the review queue (my call):** replies the classifier can't settle with confidence (LLM fails/disagrees with rules). The contact has already stopped (`replied`), so this is only labelling — no send risk.
+- **Exactly-once still holds:** `sends` stays one row per (contact, step); retries live in a new `send_attempts` table (`send_id`, `attempt`, `idempotency_key = sha256(contact:step:campaign:attempt)`, `result`, `smtp_code`, `at`). A step counts as sent only when one attempt is accepted; the provider dedupes per attempt key.
+- `verify` adds: no held contact received a send while held; ≤ 1 accepted attempt per send.
+
 ## 15a. Calls settled after builder review (my calls — check these)
 
 - **Inbound → status mapping.** bounce → `bounced`; link-click unsubscribe → `unsubscribed`; complaint → `unsubscribed` with suppression reason `complaint` (no extra status); reply → `replied` at ingest (stops sequence immediately, classification later). If classification (rule or LLM) later says `unsubscribe`, contact moves `replied → unsubscribed` and is suppressed — the only allowed post-terminal transition. `not_interested` → suppressed (reason `not_interested`) but status stays `replied`.
@@ -240,4 +253,4 @@ Module internals, exact default numbers marked "my call", CLI library (argparse 
 ## 17. Open
 
 - Exact submission deadline date.
-- User's call on dashboard gaps (§12a), especially #6 soft bounces and the extra panels in #8.
+- Updated dashboard design from the user (they're revising the mockup per the change list; §12a gaps 1–11 accepted, all panels in #8 wanted, plus a review queue for §14a).
