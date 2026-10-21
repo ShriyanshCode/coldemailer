@@ -199,7 +199,7 @@ Run on my machine (Windows 11, Intel 12-thread laptop CPU, Python 3.12.7, SQLite
 | Phase | Wall time |
 |---|---|
 | Seed 10,000 contacts with history | 2.6 s |
-| Advance 60 days (1,440 hourly cycles) | 9 min 29 s, of which most is waiting on free-model latency and 429 back-off. Without a key, ~4 s per simulated day. |
+| Advance 60 days (1,440 hourly cycles) | 5 min 44 s (5.7 s per simulated day, including real free-model calls). Without a key, ~4 s per simulated day. |
 | `verify` (12 checks) | 1.0 s, **all pass** |
 
 | Final status | Contacts | Share |
@@ -217,10 +217,10 @@ Run on my machine (Windows 11, Intel 12-thread laptop CPU, Python 3.12.7, SQLite
 
 - **The campaign finished.** Every contact reached a final status except the 128 still on hold, which are waiting for a human in the Review tab. All 128 are policy rejections (`5.7.x`); transient soft bounces all cleared on retry.
 - 20,866 emails were sent during the run, on top of 13,387 imported history sends.
-- Reply rate was 16.5% of contacted (OOO excluded) and bounce rate 1.8%. 252 out-of-office replies pushed a sequence back instead of stopping it.
+- Reply rate was 14.3% (1,364 replied of 9,554 contacted; out-of-office and unsubscribe replies aren't counted as replies) and bounce rate 1.8%. 252 out-of-office replies pushed a sequence back instead of stopping it.
 - 4 of 20 mailboxes ended paused. One is the designed poor-reputation mailbox; the other three tripped on real bounce spikes and can be resumed from the Mailboxes tab.
 - Reply labels: 1,738 by rules and 103 by the LLM, with **97.6% agreement** with the simulator's ground truth (951 checked).
-- There were 173 LLM calls: 95 succeeded and 78 got a 429. Every success came from the fallback model, because Gemma 4 was rate-limited throughout.
+- There were 121 LLM calls: 95 succeeded and 26 got a 429. A 429 puts the model on cool-down instead of being retried, and every success came from the fallback model because Gemma 4 was rate-limited throughout.
 
 ### 100,000 contacts, 14 simulated days (scale check, no AI)
 
