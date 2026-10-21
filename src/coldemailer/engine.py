@@ -385,7 +385,7 @@ def _send_one(conn, settings, provider, cap, c, step: int, mb_id: int, mb_addr: 
 
     with db.tx(conn):  # the "network call" — the provider records what it did in sim_events
         result = provider.send(key, send_id, row["id"], step, slot, row["domain"], row["first_name"],
-                               row["timezone"])
+                               row["timezone"], mb_addr)
     _finalize(conn, settings, cap, row, send_id, attempt_id, step, mb_id, slot, result, stats)
     return True
 

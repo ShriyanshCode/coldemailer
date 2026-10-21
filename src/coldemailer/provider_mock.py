@@ -55,7 +55,7 @@ class MockProvider:
             (key, send_id, contact_id, kind, smtp_code, body, true_label, deliver_at, processed_at))
 
     def send(self, idempotency_key: str, send_id: int, contact_id: int, step: int, at: str,
-             domain: str, first_name: str, tz: str = "Asia/Kolkata") -> SendResult:
+             domain: str, first_name: str, tz: str = "Asia/Kolkata", mailbox: str = "") -> SendResult:
         prior = self.lookup(idempotency_key)
         if prior:
             return prior
@@ -67,8 +67,10 @@ class MockProvider:
             self._insert(idempotency_key, send_id, contact_id, "hard_bounce",
                          timeutil.add(at, minutes=r.randint(1, 10)), "550 5.1.1", msg)
             return SendResult("hard_bounce", "550 5.1.1", msg)
-        if u < hard + s.soft_bounce_rate:
-            code, msg = r.choice(POLICY if r.random() < s.policy_share_of_soft else TRANSIENT)
+        extra_policy = s.poor_reputation_policy_rate if mailbox in s.poor_reputation_mailboxes else 0.0
+        if u < hard + s.soft_bounce_rate + extra_policy:
+            policy = u >= hard + s.soft_bounce_rate or r.random() < s.policy_share_of_soft
+            code, msg = r.choice(POLICY if policy else TRANSIENT)
             self._insert(idempotency_key, send_id, contact_id, "soft_bounce",
                          timeutil.add(at, minutes=r.randint(1, 10)), code, msg)
             return SendResult("soft_bounce", code, msg)

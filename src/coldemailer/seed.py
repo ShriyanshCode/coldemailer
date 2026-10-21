@@ -194,9 +194,11 @@ def run(settings, n: int = 10000, seed: int = 42) -> dict:
                                                           contact, mb["address"], mailbox_id, camp)
                 bounced = status == "bounced" and step == k
                 sends.append((send_id, cid, step, mailbox_id, subject, body, json.dumps(headers),
-                              _key(cid, step, camp, "import"), "bounced" if bounced else "sent", "import", at, at))
-                events.append((cid, send_id, mailbox_id, "sent",
-                               json.dumps({"step": step, "mailbox": mb["address"], "source": "import"}), at))
+                              _key(cid, step, camp, "import"), "bounced" if bounced else "sent", "import", at,
+                              None if bounced else at))
+                if not bounced:
+                    events.append((cid, send_id, mailbox_id, "sent",
+                                   json.dumps({"step": step, "mailbox": mb["address"], "source": "import"}), at))
 
             last = times[-1]
             if status in lifecycle.STATUS_BY_STEP:
@@ -205,6 +207,7 @@ def run(settings, n: int = 10000, seed: int = 42) -> dict:
                 events.append((cid, None, None, "deactivated", json.dumps({"after_step": 4}), nxt))
                 contact["updated_at"] = nxt
             elif status == "bounced":
+                contact["step"] = k - 1  # the bounced email never counted as a step sent
                 at = timeutil.add(last, minutes=cr.randint(1, 10))
                 events.append((cid, last_send_id, mailbox_id, "hard_bounced",
                                json.dumps({"smtp_code": "550 5.1.1", "message": "User unknown"}), at))

@@ -8,6 +8,7 @@ Callers always have a non-AI fallback, so None is a normal answer.
 """
 from __future__ import annotations
 
+import json
 import random
 import time
 
@@ -57,9 +58,14 @@ class LLMClient:
             at = clock.now(self.conn)
         except Exception:
             at = "1970-01-01T00:00:00Z"
-        return self.conn.execute(
+        call_id = self.conn.execute(
             "INSERT INTO llm_calls(model, purpose, status, http_status, latency_ms, retry_of, at) "
             "VALUES (?,?,?,?,?,?,?)", (model, purpose, status, http_status, latency_ms, retry_of, at)).lastrowid
+        self.conn.execute(
+            "INSERT INTO events(type, detail, occurred_at) VALUES ('ai_call', ?, ?)",
+            (json.dumps({"model": model, "purpose": purpose, "status": status, "http_status": http_status,
+                         "latency_ms": latency_ms, "retry": retry_of is not None}), at))
+        return call_id
 
     def chat(self, messages: list[dict], purpose: str, max_tokens: int = 2500,
              patient: bool = False) -> tuple[str, str] | None:
@@ -120,6 +126,6 @@ class LLMClient:
         try:
             at = clock.now(self.conn)
             self.conn.execute("INSERT INTO events(type, detail, occurred_at) VALUES ('ai_fallback', ?, ?)",
-                              (f'{{"purpose": "{purpose}", "reason": "all models failed or rate limited"}}', at))
+                              (json.dumps({"purpose": purpose, "reason": "all models failed or rate limited"}), at))
         except Exception:
             pass

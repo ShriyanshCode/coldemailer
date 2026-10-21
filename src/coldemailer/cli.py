@@ -132,6 +132,71 @@ def cmd_templates_export(args, settings) -> int:
     return 0
 
 
+def _pct(x) -> str:
+    return "—" if x is None else f"{x:.1%}"
+
+
+def cmd_report(args, settings) -> int:
+    import json
+    from . import report
+    conn = _open(settings)
+    r = report.overview(conn, settings, args.day_from, args.day_to)
+    if args.json:
+        print(json.dumps(r, indent=2, default=str))
+        return 0
+    k, c = r["kpis"], r["clock"]
+    print(f"Simulated time: {c['now_ist']} IST (advanced {c['advanced_hours']:g}h)   range {r['range']['from']} .. "
+          f"{r['range']['to']}")
+    print(f"\nContacts by status ({k['total']:,} total)")
+    for s in r["statuses"]:
+        print(f"  {s['label']:<18} {s['count']:>8,}  {s['count'] / max(k['total'], 1):6.1%}")
+    print(f"\n  on hold (review)   {r['markers']['on_hold']:>8,}\n  paused for OOO     {r['markers']['paused_ooo']:>8,}")
+    print(f"\nSent in range        {k['sent_range']:>8,}  (mailbox capacity {k['capacity_range']:,})")
+    print(f"Due today            {k['due_today']:>8,}\nDue tomorrow         {k['due_tomorrow']:>8,}")
+    for d in r["due"]:
+        print(f"  {d['label']:<18} {d['today']:>8,} today  {d['tomorrow']:>6,} tomorrow")
+    print(f"Reply rate           {_pct(k['reply_rate']):>8}  ({k['replied']:,} of {k['contacted']:,} contacted, OOO excluded)")
+    print(f"Bounce rate          {_pct(k['bounce_rate']):>8}  ({k['hard_bounces']:,} hard bounces of {k['sends_range']:,} in range)")
+    print(f"Deactivated          {k['deactivated']:>8,}\nUnsubscribed         {k['unsubscribed']:>8,}")
+    print(f"Needs review         {k['needs_review']:>8,}")
+    print("\nReplies by label: " + ", ".join(f"{x['label']} {x['count']:,}" for x in r["replies"]))
+    acc = r["classifier_accuracy"]
+    print("Classified by: " + ", ".join(f"{a} {b:,}" for a, b in r["classifiers"].items())
+          + (f"   accuracy vs ground truth {_pct(acc['rate'])} of {acc['checked']:,}" if acc["checked"] else ""))
+    sup = r["suppression"]
+    print(f"Suppression list: {sup['total']:,} (" + ", ".join(f"{x['label'].lower()} {x['count']:,}"
+                                                         for x in sup["by_reason"] if x["count"]) + ")")
+    print("Deferred today: " + (", ".join(f"{x['label'].lower()} {x['count']:,}" for x in r["deferred"] if x["count"]) or "none"))
+    return 0
+
+
+def cmd_verify(args, settings) -> int:
+    from . import verify
+    conn = _open(settings)
+    r = verify.run(conn, settings)
+    for c in r["checks"]:
+        print(f"  [{'PASS' if c['ok'] else 'FAIL'}] {c['name']}" + ("" if c["ok"] else f" - {c['detail']}"))
+    print(f"{sum(c['ok'] for c in r['checks'])}/{len(r['checks'])} checks passed")
+    return 0 if r["ok"] else 2
+
+
+def cmd_contact(args, settings) -> int:
+    from . import report
+    conn = _open(settings)
+    row = conn.execute("SELECT id FROM contacts WHERE email=?", (args.email,)).fetchone()
+    if row is None:
+        print(f"no contact with email {args.email}", file=sys.stderr)
+        return 1
+    d = report.contact_detail(conn, settings, row["id"])
+    print(f"{d['contact']['name']} <{d['contact']['email']}>")
+    for f in d["facts"]:
+        print(f"  {f['k']:<12} {f['v'].replace(chr(10), ' / ')}")
+    print("Timeline:")
+    for e in d["timeline"]:
+        print(f"  {e['at_ist']:<14} {e['label']:<15} {e['text']}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="coldemailer", description="Cold-email outreach engine")
     p.add_argument("--db", help="database path (default from .env or data/coldemailer.db)")
@@ -175,6 +240,19 @@ def build_parser() -> argparse.ArgumentParser:
     s = tpl.add_parser("export", help="write generated templates to the committed seed file")
     s.add_argument("--path", default="data/templates.seed.json")
     s.set_defaults(func=cmd_templates_export)
+
+    s = sub.add_parser("report", help="counts, due, rates (IST days)")
+    s.add_argument("--from", dest="day_from", help="IST day YYYY-MM-DD (default: 7 days back)")
+    s.add_argument("--to", dest="day_to", help="IST day YYYY-MM-DD (default: today)")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_report)
+
+    s = sub.add_parser("verify", help="check every invariant (exit 2 if any fail)")
+    s.set_defaults(func=cmd_verify)
+
+    s = sub.add_parser("contact", help="one contact's facts and timeline")
+    s.add_argument("email")
+    s.set_defaults(func=cmd_contact)
 
     s = sub.add_parser("suppress", help="add a contact's email to the suppression list")
     s.add_argument("email")
