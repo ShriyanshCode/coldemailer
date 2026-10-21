@@ -106,7 +106,7 @@ All timestamps are UTC ISO-8601 text (`YYYY-MM-DDTHH:MM:SSZ`) so lexical order =
 - **mailbox_daily**(`mailbox_id`, `day` (IST date), `sent`, `bounced`, `complaints`; PK(mailbox_id, day))
 - **domain_daily**(`domain`, `day`, `sent`; PK)
 - **templates**(`id`, `segment`, `step`, `variant`, `subject`, `body`, `source` (`llm:<model>` | `static`), `created_at`; UNIQUE(segment, step, variant))
-- **provider_outbox** (mock ESP's own state): accepted messages keyed by `idempotency_key`, and **provider_inbound**(`id`, `send_id`, `kind`, `body`, `deliver_at`, `processed_at`) = simulated future bounces/replies/unsubscribes/complaints.
+- **sim_events** — the *only* table that simulates the outside world (user decision): one DB file, our tables plus this one. Columns: `id`, `idempotency_key` (the send attempt it reacts to), `send_id`, `contact_id`, `kind` (`accepted` | `hard_bounce` | `soft_bounce` | `reply` | `unsubscribe_click` | `complaint`), `smtp_code`, `body` (reply text / bounce message), `true_label` (`interested` | `not_interested` | `out_of_office` | `unsubscribe` — ground truth, never read by the engine's decision logic, only by the report for classifier accuracy), `deliver_at`, `processed_at`. `UNIQUE(idempotency_key) WHERE kind='accepted'` is the mock provider's idempotency memory.
 - **llm_calls**(`id`, `model`, `purpose`, `status`, `http_status`, `latency_ms`, `retry_of`, `at`) — for the README's rate-limit story and the report.
 
 **Indexes**
@@ -115,7 +115,7 @@ All timestamps are UTC ISO-8601 text (`YYYY-MM-DDTHH:MM:SSZ`) so lexical order =
 - `contacts(domain)`, `contacts(email)` unique.
 - `sends(sent_at)`, `sends(state) WHERE state='claimed'` (crash recovery).
 - `events(type, occurred_at)`, `events(contact_id, occurred_at)` (timeline).
-- `provider_inbound(deliver_at) WHERE processed_at IS NULL`.
+- `sim_events(deliver_at) WHERE processed_at IS NULL`.
 - `replies(classification) WHERE classification IS NULL` (classification backlog).
 
 ## 7. The cycle
@@ -124,7 +124,7 @@ All timestamps are UTC ISO-8601 text (`YYYY-MM-DDTHH:MM:SSZ`) so lexical order =
 `advance --days D --step 1h` moves the clock in steps and runs a cycle per step.
 
 1. **Recover.** `sends` stuck in `claimed` with expired lease: ask the mock provider by `idempotency_key` whether it accepted. Accepted → finalize as sent (step 4c below). Not accepted → release claim, contact stays due.
-2. **Ingest inbound.** Apply `provider_inbound` rows with `deliver_at <= now` in time order:
+2. **Ingest inbound.** Apply `sim_events` rows with `deliver_at <= now AND processed_at IS NULL` in time order:
    - bounce → send `bounced`, contact `bounced`, suppression add, `next_action=NULL`.
    - reply → `replies` row, contact `replied`, `next_action=NULL`. If rules detect unsubscribe intent → `unsubscribed` + suppression instead.
    - unsubscribe (link click) → `unsubscribed` + suppression.
@@ -145,6 +145,8 @@ All timestamps are UTC ISO-8601 text (`YYYY-MM-DDTHH:MM:SSZ`) so lexical order =
 
 ## 8. Mock provider
 
+**Shape (user decision):** the mock provider is a plain module the worker calls — not a separate service, and no LLM anywhere in the simulation. On `send(attempt)` it writes to `sim_events` in the same transaction family: an `accepted` row (or a bounce), plus any *future* reactions (reply / unsubscribe click / complaint) with a `deliver_at` in simulated time. Reply bodies come from Faker + a built-in phrase corpus per label. The worker is the only driver: it advances the clock and, each cycle, consumes `sim_events` rows with `deliver_at <= now AND processed_at IS NULL`, reading only what a real inbox would show (SMTP code, reply body). Dice are seeded per idempotency key, so outcomes don't depend on run order.
+
 - Accept/bounce at configurable rates (defaults, my call): hard bounce 4%, complaint 0.1%.
 - For accepted sends, may schedule inbound events with delays (seeded RNG keyed on idempotency key → deterministic regardless of run order): reply probability per step (default 6%/5%/4%/3%), reply kind mix interested 30% / not interested 30% / out of office 25% / unsubscribe 15%; link-click unsubscribe 0.5%. Bounces arrive within minutes; replies 2 hours–4 days later.
 - Reply bodies drawn from a built-in corpus of realistic variants per kind (some deliberately ambiguous, so the LLM path is exercised).
@@ -154,7 +156,7 @@ All timestamps are UTC ISO-8601 text (`YYYY-MM-DDTHH:MM:SSZ`) so lexical order =
 
 - Client: `httpx`, OpenAI-compatible chat endpoint. Model chain from `.env` (`OPENROUTER_MODELS=a:free,b:free,…`); builder verifies currently available `:free` IDs.
 - **Rate limiting:** in-process token bucket (default 15 req/min) + persisted daily counter; on 429 honour `Retry-After` else exponential backoff with jitter (max 3 tries) → next model in chain → per-model cool-down → static fallback. Every call logged in `llm_calls`.
-- **Templates:** `python -m coldemailer templates warm` generates `segment × step × variants` (segments ≈ 6 role groups × 5 industries = 30; × 4 steps × 2 variants = 240 calls, ~16 min at 15 rpm; resumable, cached). Templates use merge fields (`{first_name}`, `{company}`, `{role}`…) validated before caching. Missing templates fall back to static per-step templates, so the cycle never waits on AI.
+- **Templates:** `python -m coldemailer templates warm` generates `segment × step × variant` where **segment = industry** (5: SaaS, Fintech, Retail, Healthcare, Logistics — matches the dashboard grid); role is a merge field. 5 × 4 steps × 2 variants = 40 calls (~3 min at 15 rpm; resumable, cached). Variant is chosen deterministically per contact for content diversity. Templates use merge fields (`{first_name}`, `{company}`, `{role}`…) validated before caching. Missing templates fall back to static per-step templates, so the cycle never waits on AI.
 - **Classification:** rules first (unsubscribe/OOO patterns, strong keywords); remaining replies batched (≈10 per call) with a JSON-only response, schema-validated; invalid/failed → keyword fallback labelled `fallback`.
 - No API key ⇒ everything runs on static templates + rules/keyword classifier; README says so.
 
@@ -201,6 +203,20 @@ Source: `web/mockup/outreach-dashboard-standalone.html`, a self-unpacking bundle
 9. Due panel has no "deactivate" row; report splits sends vs deactivations.
 10. Date range: KPIs "in range" multiply sample numbers; range is relative to a fixed real date. Range must be in simulated IST days and passed to the API (status counts stay point-in-time; sent/replies/bounces are per range).
 11. Practical: no loading/error states, no refresh after actions, `<title>` is "Bundled Page", fixed grids aren't responsive, `fetch` from `file://` fails (must be served by FastAPI).
+
+### 12b. Revised mockup (`web/mockup/Outreach_clean.html`) — status
+
+Covers the §12a list: tabs (Dashboard · Contacts · Review · Mailboxes · AI & Templates · Logs), clock popover with Run cycle + last-cycle stats, global search, sim-day range, 8 KPIs, funnel markers, classifier breakdown, sends-per-hour, deferred-by-reason, due incl. Deactivate, suppression breakdown, system health, contacts table with filters + pagination, review queue with actions, mailbox table + warm-up charts + Resume, AI usage + per-model table + template grid, grouped logs + load more + live-tail indicator, rich contact drawer with expandable timeline and actions, loading/empty/error states, responsive columns. It is the **visual spec**; the React build follows it and replaces all sample data with API calls.
+
+Semantics the React build must follow (mockup sample data differs):
+- **OOO** contacts are *not* `replied`; they stay at their step. "Paused for OOO" = active contacts whose `next_action_at` was pushed by an OOO reply and hasn't fired yet. Reply rate excludes OOO.
+- **Rates use real denominators:** reply rate = contacts with a genuine reply ÷ contacts with ≥1 delivered email; bounce rate = hard-bounced sends ÷ sends (in range). KPI notes say so.
+- **"On hold" ≠ "needs review":** only soft-bounce/policy items put a contact on hold. Unsure-classification items are in the review queue but the contact is already stopped (`replied`), so they aren't counted as on hold. Needs-review KPI = all open review items.
+- **Sent KPI drawer** lists sends in the selected range (not "contacts with ≥1 email").
+- **AI log entries** reflect what the system really does: "Template generated (SaaS · Follow-up 2)", "Classified batch of 10 replies", 429/fallback — no per-contact "personalised opener".
+- **Contacts paging:** page numbers stay (COUNT + LIMIT/OFFSET is fine at 10k–100k with the status/filters indexed); drawer contact lists get "load more".
+- **Long advances** (+7d = 168 hourly cycles) run as a background job: `POST /api/clock/advance` returns a job id, UI polls progress ("day 3 of 7") and refreshes when done.
+- **Additions:** a read-only *Campaign settings* card (waits 3/5/7/7, window 09:00–18:00 local, domain cap, warm-up ramp, mock rates) — the brief asks for a view of campaigns; template viewer shows variant A/B.
 
 ## 13. CLI summary
 
