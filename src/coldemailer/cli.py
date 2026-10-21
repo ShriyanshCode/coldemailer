@@ -22,6 +22,16 @@ def cmd_init_db(args, settings) -> int:
     return 0
 
 
+def cmd_seed(args, settings) -> int:
+    from . import seed
+    result = seed.run(settings, n=args.n, seed=args.seed)
+    print(f"seeded {result['contacts']:,} contacts, {result['sends']:,} historical sends, "
+          f"{result['events']:,} events in {result['seconds']}s")
+    for status, n in sorted(result["counts"].items(), key=lambda kv: -kv[1]):
+        print(f"  {status:<18} {n:>7,}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="coldemailer", description="Cold-email outreach engine")
     p.add_argument("--db", help="database path (default from .env or data/coldemailer.db)")
@@ -29,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("init-db", help="create the schema (seed does this for you)")
     s.set_defaults(func=cmd_init_db)
+
+    s = sub.add_parser("seed", help="wipe the database and seed contacts with history")
+    s.add_argument("--n", type=int, default=10000)
+    s.add_argument("--seed", type=int, default=42)
+    s.set_defaults(func=cmd_seed)
     return p
 
 
