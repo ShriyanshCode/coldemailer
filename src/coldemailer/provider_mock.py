@@ -40,7 +40,8 @@ class MockProvider:
             "SELECT 1 FROM sim_events WHERE idempotency_key=? AND kind='accepted'", (idempotency_key,)
         ).fetchone() is not None
 
-    def _existing(self, key: str) -> SendResult | None:
+    def lookup(self, key: str) -> SendResult | None:
+        """What happened to an attempt, if the provider ever saw it (used by crash recovery)."""
         row = self.conn.execute(
             "SELECT kind, smtp_code, body FROM sim_events WHERE idempotency_key=? "
             "AND kind IN ('accepted','hard_bounce','soft_bounce') ORDER BY id LIMIT 1", (key,)).fetchone()
@@ -55,7 +56,7 @@ class MockProvider:
 
     def send(self, idempotency_key: str, send_id: int, contact_id: int, step: int, at: str,
              domain: str, first_name: str, tz: str = "Asia/Kolkata") -> SendResult:
-        prior = self._existing(idempotency_key)
+        prior = self.lookup(idempotency_key)
         if prior:
             return prior
         s, r = self.s, lifecycle.rng("provider", idempotency_key)
