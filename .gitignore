@@ -1,0 +1,12 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets
+.env
+
+# Local databases (templates.seed.json is committed)
+data/*.db
+data/*.db-*
