@@ -40,12 +40,34 @@ def print_stats(label: str, st) -> None:
 
 
 def cmd_run(args, settings) -> int:
-    from . import clock, engine
+    from . import clock, runner
     conn = _open(settings)
-    now = clock.now(conn)
-    with clock.run_lock(conn, "cli"):
-        st = engine.run_cycle(conn, settings, engine.last_cycle_end(conn) or now, now, owner="cli")
-    print_stats(f"cycle at {now}", st)
+    st = runner.advance(conn, settings, 0)[0]
+    print_stats(f"cycle at {clock.now(conn)}", st)
+    return 0
+
+
+def cmd_advance(args, settings) -> int:
+    import time
+    from . import engine, runner, timeutil
+    conn = _open(settings)
+    hours = args.days * 24 + args.hours
+    if hours <= 0:
+        print("nothing to do: pass --days or --hours", file=sys.stderr)
+        return 1
+    t0 = time.perf_counter()
+    day_stats: dict[str, engine.CycleStats] = {}
+    totals = engine.CycleStats()
+
+    def progress(i, n, st, now):
+        day = timeutil.ist_day(timeutil.add(now, seconds=-1))
+        day_stats.setdefault(day, engine.CycleStats()).add(st)
+        totals.add(st)
+        if i == n or timeutil.ist_day(now) != day:
+            print_stats(f"{day}", day_stats[day])
+
+    runner.advance(conn, settings, hours, args.step, progress)
+    print_stats(f"total {hours:g}h in {time.perf_counter() - t0:.1f}s", totals)
     return 0
 
 
@@ -64,6 +86,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("run", help="run one cycle at the current simulated time")
     s.set_defaults(func=cmd_run)
+
+    s = sub.add_parser("advance", help="move the simulated clock forward, running a cycle per step")
+    s.add_argument("--days", type=float, default=0)
+    s.add_argument("--hours", type=float, default=0)
+    s.add_argument("--step", type=float, default=1, help="hours per cycle (default 1)")
+    s.set_defaults(func=cmd_advance)
     return p
 
 
