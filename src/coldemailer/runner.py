@@ -97,5 +97,6 @@ def job(conn, job_id: int) -> dict | None:
     if not row:
         return None
     d = dict(row)
-    d["result"] = json.loads(d.pop("result_json")) if d.get("result_json") else None
+    raw = d.pop("result_json", None)
+    d["result"] = json.loads(raw) if raw else None
     return d

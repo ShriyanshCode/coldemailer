@@ -197,6 +197,14 @@ def cmd_contact(args, settings) -> int:
     return 0
 
 
+def cmd_serve(args, settings) -> int:
+    import uvicorn
+    from .api import create_app
+    print(f"dashboard: http://localhost:{args.port}   API docs: http://localhost:{args.port}/docs")
+    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="coldemailer", description="Cold-email outreach engine")
     p.add_argument("--db", help="database path (default from .env or data/coldemailer.db)")
@@ -253,6 +261,11 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("contact", help="one contact's facts and timeline")
     s.add_argument("email")
     s.set_defaults(func=cmd_contact)
+
+    s = sub.add_parser("serve", help="run the API and dashboard")
+    s.add_argument("--port", type=int, default=8000)
+    s.add_argument("--host", default="127.0.0.1")
+    s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser("suppress", help="add a contact's email to the suppression list")
     s.add_argument("email")
