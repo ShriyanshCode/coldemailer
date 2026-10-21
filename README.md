@@ -224,7 +224,7 @@ Run on my machine (Windows 11, Intel 12-thread laptop CPU, Python 3.12.7, SQLite
 
 ### 100,000 contacts, 14 simulated days (scale check, no AI)
 
-This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14 --no-ai`. Full report: [`docs/results/run-100k.md`](docs/results/run-100k.md).
+This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14 --no-ai`. It was measured before the final review fixes, so its reply rate uses the earlier definition (any non-OOO reply). Full report: [`docs/results/run-100k.md`](docs/results/run-100k.md).
 
 | Phase | Wall time |
 |---|---|
