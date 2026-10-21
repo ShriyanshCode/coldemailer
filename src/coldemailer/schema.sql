@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     mailbox_id        INTEGER REFERENCES mailboxes(id),
     hold_reason       TEXT,               -- repeated_soft_bounce | policy_rejection | content_blocked
     ooo_until         TEXT,
-    last_deferred_day TEXT,               -- IST day of the last 'deferred' event (one per contact per day)
+    last_deferred_day TEXT,               -- 'IST-day:reason' of the last 'deferred' event (one per contact/day/reason)
     claimed_by        TEXT,
     claim_expires_at  TEXT,
     source            TEXT NOT NULL DEFAULT 'engine',

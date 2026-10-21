@@ -253,8 +253,8 @@ def _deactivate(conn, sim_to: str, stats: CycleStats) -> None:
 
 def _defer(pending: list, stats: CycleStats, c, reason: str, day: str, at: str) -> None:
     stats.deferred[reason] = stats.deferred.get(reason, 0) + 1
-    if c["last_deferred_day"] != day:
-        pending.append((c["id"], reason, day, at, lifecycle.action_step(c["next_action"])))
+    if c["last_deferred_day"] != f"{day}:{reason}":  # one event per contact, day and reason
+        pending.append((c["id"], reason, f"{day}:{reason}", at, lifecycle.action_step(c["next_action"])))
 
 
 def _flush_deferred(conn, pending: list) -> None:
@@ -327,7 +327,8 @@ def _bulk_defer(conn, cap, action: str, last: tuple, sim_to: str, day: str, stat
     with db.tx(conn):
         ids = conn.execute(
             f"UPDATE contacts SET last_deferred_day=? WHERE {where} AND "
-            f"(last_deferred_day IS NULL OR last_deferred_day != ?) RETURNING id", (day, *args, day)).fetchall()
+            f"(last_deferred_day IS NULL OR last_deferred_day != ?) RETURNING id",
+            (f"{day}:{reason}", *args, f"{day}:{reason}")).fetchall()
         detail = json.dumps({"reason": reason, "step": lifecycle.action_step(action)})
         conn.executemany("INSERT INTO events(contact_id, type, detail, occurred_at) VALUES (?, 'deferred', ?, ?)",
                          [(r["id"], detail, sim_to) for r in ids])
