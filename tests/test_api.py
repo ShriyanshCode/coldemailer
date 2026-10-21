@@ -114,3 +114,14 @@ def test_empty_db_returns_200(tmp_path):
     assert r.status_code == 200 and r.json()["initialised"] is False
     assert api.get("/api/contacts").json()["total"] == 0
     assert api.post("/api/clock/advance", json={"hours": 1}).status_code == 409
+
+
+def test_contacts_due_and_ooo_filters(api, seeded):
+    conn = db.connect(seeded.db_path)
+    today_end = conn.execute("SELECT now FROM clock").fetchone()[0][:10] + "T18:30:00Z"  # IST midnight
+    expected = conn.execute("SELECT COUNT(*) FROM contacts WHERE next_action IS NOT NULL AND hold_reason IS NULL "
+                            "AND next_action_at < ?", (today_end,)).fetchone()[0]
+    assert api.get("/api/contacts", params={"due": "today"}).json()["total"] == expected
+    tomorrow = api.get("/api/contacts", params={"due": "tomorrow", "size": 200}).json()
+    assert all(r["next_action_at"] >= today_end for r in tomorrow["rows"])
+    assert api.get("/api/contacts", params={"ooo": "yes"}).json()["total"] == 0  # seed has no OOO pushes yet
