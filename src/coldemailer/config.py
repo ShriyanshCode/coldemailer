@@ -72,6 +72,9 @@ class Settings:
     llm_tries_per_model: int = 3
     llm_cooldown_s: int = 60
     classify_calls_per_cycle: int = 3
+    classify_budget_s: float = 60          # wall-clock cap on LLM work per cycle
+    llm_call_deadline_s: float = 45        # one HTTP call inside a cycle
+    llm_patient_deadline_s: float = 120    # one HTTP call in a batch job (templates warm)
     classify_batch: int = 10
 
 

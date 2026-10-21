@@ -112,9 +112,12 @@ def backlog(conn, settings, llm=None, now: str | None = None) -> int:
         (settings.classify_batch * settings.classify_calls_per_cycle,)).fetchall()
     if not rows:
         return 0
+    import time
     at = now or rows[-1]["received_at"]
-    done = 0
+    done, started = 0, time.monotonic()
     for i in range(0, len(rows), settings.classify_batch):
+        if llm and time.monotonic() - started > settings.classify_budget_s:
+            break  # out of time this cycle: the rest waits for the next one (the contacts are already stopped)
         chunk = rows[i:i + settings.classify_batch]
         labels, model = _llm_labels(llm, chunk) if llm else ({}, None)
         for r in chunk:

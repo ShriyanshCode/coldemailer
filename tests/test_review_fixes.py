@@ -111,3 +111,28 @@ def test_reply_kpi_matches_replied_list(tmp_path):
     runner.advance(conn, s, 24 * 5, llm=None)
     k = report.overview(conn, s)["kpis"]
     assert k["replied"] == report.contacts(conn, {"status": "replied"})["total"]
+
+
+class DripStream(httpx.SyncByteStream):
+    """OpenRouter-style keep-alive: whitespace forever, each chunk 'taking' 20 s of fake time."""
+    def __init__(self, clock):
+        self.clock = clock
+
+    def __iter__(self):
+        while True:
+            self.clock["t"] += 20
+            yield b" "
+
+
+def test_hanging_call_is_cut_at_the_deadline_and_chain_moves_on(conn, settings):
+    s = replace(settings, openrouter_api_key="k", openrouter_models=("slow:free", "m2:free"))
+    fake = {"t": 0.0}
+
+    def handler(req):
+        if json.loads(req.content)["model"] == "slow:free":
+            return httpx.Response(200, stream=DripStream(fake))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+    c = LLMClient(conn, s, transport=httpx.MockTransport(handler), sleep=lambda x: None, now=lambda: fake["t"])
+    assert c.chat([{"role": "user", "content": "x"}], "classify") == ("ok", "m2:free")
+    statuses = [tuple(r) for r in conn.execute("SELECT model, status FROM llm_calls ORDER BY id")]
+    assert statuses == [("slow:free", "error"), ("m2:free", "ok")]

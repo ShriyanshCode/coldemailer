@@ -80,6 +80,18 @@ class LLMClient:
             self._log_fallback(purpose)
         return answer
 
+    def _post(self, payload: dict, deadline_s: float):
+        """POST with an overall deadline. OpenRouter keeps slow requests alive by sending whitespace,
+        which resets httpx's per-read timeout, so a call could otherwise hang for many minutes."""
+        start = self.now()
+        with self.http.stream("POST", "/chat/completions", json=payload) as resp:
+            body = bytearray()
+            for chunk in resp.iter_bytes():
+                body += chunk
+                if self.now() - start > deadline_s:
+                    raise httpx.ReadTimeout(f"no answer within {deadline_s:.0f}s")
+            return resp.status_code, resp.headers, bytes(body)
+
     def _chat_once(self, messages, purpose, max_tokens, patient: bool) -> tuple[str, str] | None:
         """Inside a cycle (not patient) never sleep: a 429 puts the model on cool-down for Retry-After
         and the next model is tried at once. Patient batch jobs retry with back-off."""
@@ -91,8 +103,9 @@ class LLMClient:
                 self.bucket.acquire()
                 t0 = time.perf_counter()
                 try:
-                    resp = self.http.post("/chat/completions", json={
-                        "model": model, "messages": messages, "temperature": 0.4, "max_tokens": max_tokens})
+                    status, headers, body = self._post(
+                        {"model": model, "messages": messages, "temperature": 0.4, "max_tokens": max_tokens},
+                        self.s.llm_patient_deadline_s if patient else self.s.llm_call_deadline_s)
                 except httpx.HTTPError:
                     retry_of = self._log(model, purpose, "error", None, int((time.perf_counter() - t0) * 1000),
                                          retry_of)
@@ -101,9 +114,9 @@ class LLMClient:
                     self.sleep(2 ** attempt + self.jitter.random())
                     continue
                 latency = int((time.perf_counter() - t0) * 1000)
-                if resp.status_code == 200:
+                if status == 200:
                     try:
-                        text = resp.json()["choices"][0]["message"]["content"] or ""
+                        text = json.loads(body)["choices"][0]["message"]["content"] or ""
                     except (ValueError, KeyError, IndexError, TypeError):
                         text = ""
                     if text.strip():
@@ -111,10 +124,10 @@ class LLMClient:
                         return text, model
                     retry_of = self._log(model, purpose, "error", 200, latency, retry_of)
                     continue
-                if resp.status_code == 429:
+                if status == 429:
                     retry_of = self._log(model, purpose, "rate_limited", 429, latency, retry_of)
                     try:
-                        wait = float(resp.headers.get("Retry-After", ""))
+                        wait = float(headers.get("Retry-After", ""))
                     except ValueError:
                         wait = 2 ** attempt + self.jitter.random()
                     if not patient:
@@ -122,8 +135,8 @@ class LLMClient:
                         break
                     self.sleep(min(wait, 60))
                     continue
-                retry_of = self._log(model, purpose, "error", resp.status_code, latency, retry_of)
-                if 400 <= resp.status_code < 500 or not patient:
+                retry_of = self._log(model, purpose, "error", status, latency, retry_of)
+                if 400 <= status < 500 or not patient:
                     break  # bad request / unknown model, or no time to wait inside a cycle
                 self.sleep(2 ** attempt + self.jitter.random())
             self.cooldown[model] = max(self.cooldown.get(model, 0), self.now() + self.s.llm_cooldown_s)
