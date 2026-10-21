@@ -30,7 +30,7 @@ class Settings:
     domain_daily_cap: int = 50
 
     # Mock provider
-    hard_bounce_rate: float = 0.04
+    hard_bounce_rate: float = 0.02
     soft_bounce_rate: float = 0.02
     policy_share_of_soft: float = 1 / 3
     complaint_rate: float = 0.001
@@ -50,9 +50,11 @@ class Settings:
     max_soft_attempts: int = 3
 
     # Auto-pause
-    autopause_window: int = 50
-    autopause_min_sample: int = 20
+    autopause_window: int = 100
+    autopause_min_sample: int = 50
     autopause_bounce: float = 0.05
+    autopause_complaint_window: int = 1000
+    autopause_complaint_min_sample: int = 300
     autopause_complaint: float = 0.003
 
     # Engine
