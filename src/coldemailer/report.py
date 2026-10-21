@@ -200,6 +200,15 @@ def contacts(conn, filters: dict, page: int = 0, size: int = 25) -> dict:
         args.append(int(filters["mailbox_id"]))
     if filters.get("on_hold") in ("yes", "no"):
         where.append("hold_reason IS NOT NULL" if filters["on_hold"] == "yes" else "hold_reason IS NULL")
+    if filters.get("due") in ("today", "tomorrow"):
+        today = timeutil.ist_day(clock.now(conn))
+        t1 = timeutil.ist_day_bounds(today)[1]
+        where.append("next_action IS NOT NULL AND hold_reason IS NULL AND next_action_at < ?"
+                     + (" AND next_action_at >= ?" if filters["due"] == "tomorrow" else ""))
+        args += [timeutil.ist_day_bounds(timeutil.shift_day(today, 1))[1], t1] if filters["due"] == "tomorrow" else [t1]
+    if filters.get("ooo") == "yes":
+        where.append("ooo_until > ? AND next_action IS NOT NULL")
+        args.append(clock.now(conn))
     if filters.get("q"):
         where.append("(email LIKE ? OR company LIKE ? OR first_name || ' ' || last_name LIKE ?)")
         args += [f"%{filters['q']}%"] * 3

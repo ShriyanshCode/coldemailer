@@ -63,9 +63,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/contacts")
     def contacts(c=Depends(conn), status: str | None = None, step: int | None = None, segment: str | None = None,
                  timezone: str | None = None, mailbox_id: int | None = None, on_hold: str | None = None,
-                 q: str | None = None, page: int = 0, size: int = 25):
+                 q: str | None = None, due: str | None = None, ooo: str | None = None, page: int = 0, size: int = 25):
         filters = {"status": status, "step": step, "segment": segment, "timezone": timezone,
-                   "mailbox_id": mailbox_id, "on_hold": on_hold, "q": q}
+                   "mailbox_id": mailbox_id, "on_hold": on_hold, "q": q, "due": due, "ooo": ooo}
         return report.contacts(c, filters, page, size)
 
     @app.get("/api/contacts/{contact_id}")
