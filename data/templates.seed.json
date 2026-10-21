@@ -1,0 +1,362 @@
+[
+  {
+    "segment": "Fintech",
+    "step": 1,
+    "variant": "A",
+    "subject": "Reducing month-end reconciliation time",
+    "body": "Hi {first_name},\n\nDoes month-end reconciliation at {company} still require {role} to manually compare bank, payment processor, and accounting exports?\n\nNorthbeam can automate those checks and flag exceptions in one workflow, so your team can resolve actual mismatches instead of rebuilding spreadsheets each close.\n\nWould a 15-minute call be useful to see how this could fit {company}'s process?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Fintech",
+    "step": 1,
+    "variant": "B",
+    "subject": "Reducing month-end reconciliation time",
+    "body": "Hi {first_name},\n\nIs month-end reconciliation still eating days because transaction exceptions are tracked across spreadsheets and inboxes?\n\nAt {company}, Northbeam can help {role} automate exception routing, approvals, and status tracking, so teams spend less time chasing missing matches and approvals.\n\nWould a short call next week be useful to map one reconciliation bottleneck?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Fintech",
+    "step": 2,
+    "variant": "A",
+    "subject": "Re: Faster month-end reconciliation",
+    "body": "Hi {first_name},\n\nQuick follow-up: I put together a one-page example for {company} showing how to reduce month-end reconciliation time.\n\nIt maps the manual steps, shows where workflow automation fits, and gives a simple time estimate for {role} workflows in {industry_topic}. I can send the page here instead of a call.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Fintech",
+    "step": 2,
+    "variant": "B",
+    "subject": "Re: Faster month-end reconciliation",
+    "body": "Hi {first_name},\n\nWould a one-page example be useful?\n\nI put together an example tailored to {industry_topic} showing how {role} teams at {company} can consolidate transaction data, flag exceptions, and reduce manual review time. Reply and I’ll send the one-page example—no call needed.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Fintech",
+    "step": 3,
+    "variant": "A",
+    "subject": "Re: Faster month-end close",
+    "body": "Hi {first_name},\n\nFor {company}, a different way for {industry_topic} teams to cut month-end reconciliation time is to reduce exception follow-up, not just transaction matching.\n\nA small Northbeam test: send each unmatched item to the right {role}, record the resolution in one shared trail, and flag only stale cases. Compare hours spent chasing exceptions and time to final sign-off before and after. It’s a simple way to see where close time is actually lost.\n\nI can share the workflow outline if it’s useful.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Fintech",
+    "step": 3,
+    "variant": "B",
+    "subject": "Re: Month-end reconciliation",
+    "body": "Hi {first_name},\n\nCould transaction exceptions across {industry_topic} systems be slowing {company}’s month-end close?\n\nA useful benchmark is how many hours your team spends chasing unmatched transactions. These exceptions often involve moving between ledgers, payment processors, and banking portals to resolve the same items.\n\nNorthbeam can centralize exceptions, apply review rules, and route each item to the right owner with source context attached. That gives {role} teams one queue to work from instead of several spreadsheets and inboxes.\n\nWould a short workflow review be useful?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Fintech",
+    "step": 4,
+    "variant": "A",
+    "subject": "Re: Month-end reconciliation",
+    "body": "Hi {first_name},\n\nI wanted to close the loop on reducing month-end reconciliation time for {company}. If it is still relevant to your {role}, I can show how workflow automation helps finance teams in {industry_topic} reduce manual review and handoffs.\n\nIf now is not the right time, no action needed. If timing changes, reply and I’ll follow up.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Fintech",
+    "step": 4,
+    "variant": "B",
+    "subject": "Re: Month-end reconciliation",
+    "body": "Hi {first_name}, is month-end reconciliation still taking too much time at {company}?\n\nI’m closing the loop on my note. If reducing reconciliation effort is still a priority for your {role}, we can revisit how Northbeam can streamline matching and exception handling for {industry_topic} teams.\n\nIf the timing has changed, just reply and I’ll reconnect. Otherwise, I’ll leave it here.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 1,
+    "variant": "A",
+    "subject": "Reducing appointment no-shows",
+    "body": "Hi {first_name},\n\nAt {company}, missed appointments create schedule gaps that {role} teams have to backfill. Northbeam helps reduce these gaps through automated reminders and follow-up workflows tailored to {industry_topic}.\n\nWould you be open to a 15-minute call to see if this fits your process?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 1,
+    "variant": "B",
+    "subject": "Reducing appointment no-shows",
+    "body": "Hi {first_name},\n\nHow often do missed appointments disrupt your team’s schedule?\n\nAt {company}, disconnected reminders and follow-ups can create scheduling gaps and extra administrative work for your {role} team. Northbeam helps coordinate workflows around {industry_topic}, giving teams a clearer way to reduce missed visits.\n\nWould a 15-minute call be useful to compare approaches?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 2,
+    "variant": "A",
+    "subject": "Re: Appointment no-shows",
+    "body": "Hi {first_name},\n\nA quick follow-up on {industry_topic} at {company}. I put together a one-page example for {role} teams showing how to flag likely no-shows, send targeted reminders, and track results.\n\nRather than book a call, I can share the example here. Reply “send it” and I’ll send it over.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 2,
+    "variant": "B",
+    "subject": "Re: reducing appointment no-shows",
+    "body": "Hi {first_name},\n\nWould a one-page example be useful?\n\nIt shows how {company} could reduce missed appointments with automated reminders and easy rescheduling. The example includes a practical {industry_topic} workflow for a {role}.\n\nReply “example” and I’ll send the one-page PDF.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 3,
+    "variant": "A",
+    "subject": "Re: Easier appointment rebooking",
+    "body": "Hi {first_name},\n\nWhen focusing on {industry_topic}, another lever is making rescheduling easier, not just adding another reminder.\n\nStart with a small test for {company}: compare no-show rates between patients who can rebook in one step and those who must call. Track the gap for two weeks. It gives {role} a clear view of where patients drop off.\n\nNorthbeam can connect confirmations, self-service rebooking, and follow-up in one workflow.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 3,
+    "variant": "B",
+    "subject": "Re: appointment no-show workflows",
+    "body": "Hi {first_name},\n\nWould a different follow-up path for missed appointments help {company} reduce no-shows?\n\nRather than sending every patient the same reminder, Northbeam can help your {role} team trigger a confirmation, waitlist offer, or rescheduling sequence based on appointment status. A small test in {industry_topic} could show where patients disengage before you scale it.\n\nIf useful, I can share a simple workflow outline. Would that be helpful?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 4,
+    "variant": "A",
+    "subject": "Re: Reducing appointment no-shows",
+    "body": "Hi {first_name},\n\nI wanted to close the loop on reducing appointment no-shows at {company}. If this is relevant to your work as {role} in {industry_topic}, Northbeam can help organize reminders and follow-up workflows.\n\nI’ll leave it here for now, but if the timing changes, reply and I’ll be happy to reconnect.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Healthcare",
+    "step": 4,
+    "variant": "B",
+    "subject": "Re: Reducing appointment no-shows",
+    "body": "Hi {first_name},\n\nWould reducing appointment no-shows still be a priority for {company}?\n\nI wanted to close the loop on my previous notes. This is my final follow-up. Northbeam helps {role} teams coordinate appointment reminders and patient follow-ups, making {industry_topic} easier to manage.\n\nIf the timing changes, reply and I’ll follow up then. Otherwise, I’ll close the thread here.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 1,
+    "variant": "A",
+    "subject": "Catch late shipments before customers notice",
+    "body": "Hi {first_name},\n\nLate shipments can stay invisible until a customer asks where the order is. For {company}, the {role} team may spend time checking several carrier portals and manually updating customers instead of catching risky deliveries earlier.\n\nA workflow can compare carrier status with promised delivery dates, then flag shipments likely to be late. This gives the team time to follow up before the customer notices.\n\nWould a 15-minute call to map this for {company}'s {industry_topic} operations be useful?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 1,
+    "variant": "B",
+    "subject": "Catch late shipments before customers notice",
+    "body": "Hi {first_name},\n\nAre late shipments at {company} still visible only when customers complain?\n\nWhen a delivery slips across carriers, teams often have to piece together updates manually, so a shipment can look on track until the customer notices. Northbeam can surface exceptions and flag at-risk orders sooner.\n\nWould a 15-minute call be useful to see whether this fits your {industry_topic} workflow? I can focus on the handoff to your {role}.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 2,
+    "variant": "A",
+    "subject": "Re: Late shipment tracking",
+    "body": "Hi {first_name},\n\nA quick follow-up: I put together a one-page example showing how {company} could track late shipments in {industry_topic} before customers notice.\n\nIt covers:\n- Comparing expected and actual delivery dates\n- Alerting {role} when shipments slip\n- Prioritizing shipments that may impact customer commitments\n\nNo call needed. Would you like me to send the one-page example?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 2,
+    "variant": "B",
+    "subject": "Re: Late shipment tracking",
+    "body": "Hi {first_name}, would a one-page example be useful?\n\nI can show how {company} could apply {industry_topic} to spot late shipments before customers notice. It focuses on the checks a {role} needs and where exceptions get flagged. No call needed—reply “example” and I’ll send it over.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 3,
+    "variant": "A",
+    "subject": "Re: tracking late shipments",
+    "body": "Hi {first_name},\n\nOne way to catch delays earlier: compare each promised delivery date with carrier updates, then create an internal task when the ETA moves. That gives {role} time to reroute, contact the customer, or adjust the forecast first.\n\nFor {company}, this can fit into the existing {industry_topic} workflow rather than adding another tracking dashboard. The team sees only shipments needing attention, with the status change and next action in one place.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 3,
+    "variant": "B",
+    "subject": "Re: Late shipment monitoring",
+    "body": "Hi {first_name},\n\nWould one workflow help your {role} team catch late shipments before customers ask?\n\nNorthbeam can compare planned and actual delivery milestones, flag exceptions, and route them for review. For {company}, that means fewer manual status checks and earlier attention when a shipment is at risk.\n\nIf monitoring {industry_topic} is already on your radar, I can share a simple workflow outline.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 4,
+    "variant": "A",
+    "subject": "Re: Late shipment tracking",
+    "body": "Hi {first_name},\n\nI wanted to close the loop on {industry_topic} for {company}. The goal is to help {role} spot late shipments before customers notice, review what caused the delay, and follow up while there’s still time to communicate clearly.\n\nSince this is my last follow-up, I’ll leave it here. If the timing changes, reply and I’ll be happy to reconnect.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Logistics",
+    "step": 4,
+    "variant": "B",
+    "subject": "Re: Tracking late shipments",
+    "body": "Hi {first_name},\n\nWould it be worth revisiting how {company} tracks late shipments before customers notice?\n\nI wanted to close the loop on our earlier conversation about {industry_topic}. Northbeam helps logistics teams identify delivery exceptions, flag them for review, and keep {role} informed without adding manual follow-up.\n\nIf the timing isn’t right, no problem. If your priorities have changed and you’d like to revisit this later, just reply and I’ll follow up.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 1,
+    "variant": "A",
+    "subject": "Forecasting seasonal demand",
+    "body": "Hi {first_name},\n\nSeasonal demand shifts leave retail teams with too much inventory in some weeks and stockouts in others. If planning still relies on last year’s sales and manual updates, {company} may react after demand changes, not before.\n\nI’d like to show how teams in {industry_topic} can turn sales, promotions, and store traffic into updated weekly forecasts, then align purchasing and staffing decisions. This could also give {role} a clearer view of where forecast errors are creating cost.\n\nWorth a 15-minute call to see if this fits {company}?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 1,
+    "variant": "B",
+    "subject": "Seasonal Forecasts and Stockout Risk",
+    "body": "Hi {first_name},\n\nHow well does {company} handle {industry_topic} when seasonal demand shifts?\n\nMissed seasonal spikes can leave {company} short on stock, turning forecast errors into rushed reorders and lost sales. Northbeam helps retail teams improve demand forecasts so {role} can plan inventory with a clearer view of what to order and when.\n\nWould you be open to a 15-minute call to compare notes on {industry_topic}?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 2,
+    "variant": "A",
+    "subject": "Re: Seasonal demand forecasting",
+    "body": "Hi {first_name},\n\nQuick follow-up: I can share a one-page example of how {company} can use {industry_topic} to plan seasonal inventory and staffing.\n\nIt shows a simple forecasting workflow and sample demand plan, with no call needed. Reply if you’d like me to send it.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 2,
+    "variant": "B",
+    "subject": "Re: Seasonal demand forecasting",
+    "body": "Hi {first_name},\n\nWould a one-page example of {industry_topic} be useful for {company}?\n\nI can share a practical example tailored for a {role}, showing how seasonal signals can shape forecast assumptions and planning decisions—without a call.\n\nIt covers:\n- A common retail seasonality pattern\n- A simple forecasting workflow\n- A planning view of forecast changes\n\nWould that be worth a look?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 3,
+    "variant": "A",
+    "subject": "Re: seasonal demand forecasts",
+    "body": "Hi {first_name},\n\nOne useful test for {industry_topic} is to compare last year's demand curve with current sell-through, then review only unusual gaps.\n\nFor {role} at {company}, Northbeam can automate that comparison in a workflow and flag exceptions. This puts planning time into decisions rather than spreadsheet cleanup.\n\nWould a short example of this seasonal forecasting workflow be useful?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 3,
+    "variant": "B",
+    "subject": "Re: Seasonal forecast signals",
+    "body": "Hi {first_name},\n\nWhat if seasonal demand changes are easier to act on when they trigger a clear review step?\n\nFor {company}, {industry_topic} can be turned into a small workflow: compare each updated forecast with prior weeks, flag meaningful changes, and route the decision to {role}. Inventory and staffing plans then reflect the latest signal without relying on a separate spreadsheet.\n\nA simple test: choose one forecast update and see whether it leads to a documented decision. If not, the gap is usually in the handoff, not the data.\n\nWould comparing that workflow with your current process be useful?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 4,
+    "variant": "A",
+    "subject": "Re: Seasonal demand forecasting",
+    "body": "Hi {first_name},\n\nClosing the loop on seasonal demand forecasting for {company}. If {industry_topic} is a priority, Northbeam can help your {role} turn forecast inputs into repeatable workflows, making seasonal planning easier to track and act on.\n\nIf the timing has changed or this is not a priority right now, reply and let me know. I am happy to reconnect when it makes sense.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "Retail",
+    "step": 4,
+    "variant": "B",
+    "subject": "Re: seasonal demand forecasting",
+    "body": "Hi {first_name},\n\nIs {industry_topic} still relevant to {role} at {company}?\n\nI wanted to close the loop on my earlier note. If the timing changes, reply and I’ll check back then.\n\nBest,\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 1,
+    "variant": "A",
+    "subject": "Reducing onboarding churn",
+    "body": "Hi {first_name},\n\nOne concrete onboarding problem for {company} is that users may never reach the setup step that gives them value. When that happens, they leave before forming a habit, and {role} teams lose them during onboarding.\n\nNorthbeam can track where users stall and trigger a focused follow-up at the right moment, moving them toward activation without adding manual work.\n\nAre you open to a 15-minute call to compare notes on where {company} sees drop-off?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 1,
+    "variant": "B",
+    "subject": "Reducing Onboarding Churn",
+    "body": "Hi {first_name}, what causes new users at {company} to leave before they see value in {industry_topic}?\n\nWhen onboarding ownership is unclear, {role} teams may not know which users need help until those users have already churned.\n\nI’m {sender_name} from Northbeam. We help SaaS teams spot onboarding friction and respond to behavior signals. Would you be open to a 15-minute call to review one onboarding workflow?\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 2,
+    "variant": "A",
+    "subject": "Re: reducing onboarding churn",
+    "body": "Hi {first_name},\n\nA quick follow-up on reducing churn during onboarding at {company}. Rather than another call, I can share a one-page example showing how teams can spot drop-off points and make focused onboarding improvements.\n\nIt’s built for {role} teams and includes a practical before-and-after view. Reply “send it” and I’ll email the page.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 2,
+    "variant": "B",
+    "subject": "Re: Onboarding churn workflow",
+    "body": "Hi {first_name},\n\nWould a one-page example be more useful than another call?\n\nIt shows a simple {industry_topic} onboarding workflow for {company}, including the signals a {role} team can use to spot churn risk and keep stalled accounts moving toward activation.\n\nIf useful, reply “example” and I’ll send it over.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 3,
+    "variant": "A",
+    "subject": "Re: onboarding milestones",
+    "body": "Hi {first_name},\n\nA quick note for {company}: early churn often starts when users complete setup without reaching a meaningful outcome.\n\nFor SaaS teams in {industry_topic}, Northbeam can assign each onboarding task to an owner and flag accounts where the {role} milestone has not been reached.\n\nOne team using this approach caught stalled users during week one, before they became renewal conversations.\n\nIf useful, I can send the one-page workflow.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 3,
+    "variant": "B",
+    "subject": "Re: onboarding churn",
+    "body": "Hi {first_name},\n\nCould one simple cohort view show where {role} users stall before their first repeated workflow?\n\nOnboarding churn often builds in the gap between initial setup and a second use, not during signup. Tracking that gap for {industry_topic} gives {company} a clearer place to improve the experience without adding more reminders.\n\nIf useful, I can share the two-step setup we use to track it.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 4,
+    "variant": "A",
+    "subject": "Re: reducing onboarding churn",
+    "body": "Hi {first_name},\n\nA common churn risk in {industry_topic} is onboarding that creates work without showing value early. For {role} teams, one practical approach is to define the first successful outcome, then track whether new users reach it.\n\nI wanted to close the loop on this. If reducing churn during onboarding is a priority for {company}, I can share the workflow. If the timing isn’t right, no need to reply. If priorities change later, just reply and I’ll pick it up then.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  },
+  {
+    "segment": "SaaS",
+    "step": 4,
+    "variant": "B",
+    "subject": "Re: reducing onboarding churn",
+    "body": "Hi {first_name},\n\nWould reducing onboarding churn still be a priority for {company}?\n\nI wanted to close the loop on my note about {industry_topic}. Northbeam helps SaaS teams identify stalled onboarding and coordinate follow-ups before customers disengage, giving {role} a clearer view of where intervention is needed.\n\nIf priorities or timing have changed, please reply when this becomes relevant again.\n\n{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}",
+    "source": "llm:minimax/minimax-m3.1-flash:free",
+    "created_at": "2026-10-03T03:30:00Z"
+  }
+]

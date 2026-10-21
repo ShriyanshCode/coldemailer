@@ -6,6 +6,9 @@ import json
 import os
 import re
 
+from .. import content
+from ..config import SEGMENTS
+
 INDUSTRY_TOPIC = {
     "SaaS": "reducing churn during onboarding",
     "Fintech": "cutting month-end reconciliation time",
@@ -106,3 +109,78 @@ def export_seed_file(conn, path: str = "data/templates.seed.json") -> int:
     with open(path, "w", encoding="utf-8") as f:
         json.dump([dict(r) for r in rows], f, indent=2, ensure_ascii=False)
     return len(rows)
+
+
+STEP_BRIEF = {
+    1: "the first email: introduce one concrete problem and ask for a short call",
+    2: "follow-up 1 (3 days later): short bump that offers a one-page example instead of a call",
+    3: "follow-up 2: share a different angle or small proof point, still low pressure",
+    4: "follow-up 3, the last one: politely close the loop and invite a reply if timing changes",
+}
+VARIANT_STYLE = {"A": "direct and plain", "B": "opens with a short question"}
+SAMPLE = {"id": 1, "first_name": "Priya", "company": "Acme", "role": "VP Sales", "industry": "SaaS",
+          "email": "priya@acme.com"}
+
+
+def _prompt(segment: str, step: int, variant: str) -> list[dict]:
+    fields = ", ".join("{" + f + "}" for f in sorted(MERGE_FIELDS))
+    return [
+        {"role": "system", "content":
+            "You write short, plain-text B2B cold emails for Northbeam, a workflow tool. "
+            "Answer with one JSON object only: {\"subject\": \"...\", \"body\": \"...\"}. No markdown."},
+        {"role": "user", "content":
+            f"Audience: {segment} companies; the reader's role is the merge field {{role}}. "
+            f"Topic: {INDUSTRY_TOPIC[segment]}. This is {STEP_BRIEF[step]}. Style: {VARIANT_STYLE[variant]}. "
+            f"Use only these merge fields, written exactly like this: {fields}. Start with 'Hi {{first_name}},'. "
+            "Under 110 words. No links except the unsubscribe line. No hype words (free, guarantee, urgent, act now). "
+            "End the body with: '{sender_name}\nNorthbeam\n\nNot relevant? Unsubscribe here: {unsubscribe_url}'. "
+            + ("Subject under 8 words." if step == 1 else "Subject: reuse 'Re: ' plus a short first subject.")},
+    ]
+
+
+def _parse(text: str) -> tuple[str, str] | None:
+    text = text.strip().strip("`")
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        obj = json.loads(text[start:end + 1])
+    except json.JSONDecodeError:
+        return None
+    subject, body = str(obj.get("subject", "")).strip(), str(obj.get("body", "")).strip()
+    return (subject, body) if subject and body else None
+
+
+def validate(subject: str, body: str) -> list[str]:
+    unknown = {f for f in FIELD.findall(subject + body)} - MERGE_FIELDS
+    problems = [f"unknown_field:{f}" for f in sorted(unknown)]
+    if "{unsubscribe_url}" not in body:
+        problems.append("missing_unsubscribe")
+    s, b, _ = render({"subject": subject, "body": body}, SAMPLE, "sales1@mail-a.test")
+    return problems + content.check(s, b)
+
+
+def warm(conn, client, now: str) -> dict:
+    """Generate any missing segment x step x variant templates. Resumable; failures keep the static one."""
+    out = {"generated": 0, "skipped": 0, "failed": 0}
+    for segment in SEGMENTS:
+        for step in (1, 2, 3, 4):
+            for variant in ("A", "B"):
+                if conn.execute("SELECT 1 FROM templates WHERE segment=? AND step=? AND variant=?",
+                                (segment, step, variant)).fetchone():
+                    out["skipped"] += 1
+                    continue
+                answer = client.chat(_prompt(segment, step, variant), "template", patient=True) if client else None
+                parsed = _parse(answer[0]) if answer else None
+                if parsed and "{unsubscribe_url}" not in parsed[1]:
+                    parsed = (parsed[0], parsed[1].rstrip() + FOOTER)
+                if not parsed or validate(*parsed):
+                    out["failed"] += 1
+                    continue
+                conn.execute(
+                    "INSERT INTO templates(segment, step, variant, subject, body, source, created_at) "
+                    "VALUES (?,?,?,?,?,?,?)", (segment, step, variant, parsed[0], parsed[1], f"llm:{answer[1]}", now))
+                conn.execute("INSERT INTO events(type, detail, occurred_at) VALUES ('template_generated', ?, ?)",
+                             (json.dumps({"segment": segment, "step": step, "variant": variant, "model": answer[1]}), now))
+                out["generated"] += 1
+    return out

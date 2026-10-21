@@ -110,6 +110,28 @@ def cmd_suppress(args, settings) -> int:
     return 0
 
 
+def cmd_templates_warm(args, settings) -> int:
+    from . import clock, runner
+    from .ai import templates
+    conn = _open(settings)
+    client = runner.default_llm(conn, settings)
+    if client is None:
+        print("no OPENROUTER_API_KEY / OPENROUTER_MODELS in .env: nothing to generate (static templates stay)")
+        return 1
+    result = templates.warm(conn, client, clock.now(conn))
+    print(f"templates: generated {result['generated']}, already cached {result['skipped']}, "
+          f"failed {result['failed']} (failed ones fall back to the static template)")
+    return 0
+
+
+def cmd_templates_export(args, settings) -> int:
+    from .ai import templates
+    conn = _open(settings)
+    n = templates.export_seed_file(conn, args.path)
+    print(f"wrote {n} templates to {args.path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="coldemailer", description="Cold-email outreach engine")
     p.add_argument("--db", help="database path (default from .env or data/coldemailer.db)")
@@ -146,6 +168,13 @@ def build_parser() -> argparse.ArgumentParser:
     s = mailbox.add_parser("resume", help="resume a paused mailbox")
     s.add_argument("id", type=int)
     s.set_defaults(func=cmd_mailbox_resume)
+
+    tpl = sub.add_parser("templates", help="AI-written templates").add_subparsers(dest="sub", required=True)
+    s = tpl.add_parser("warm", help="generate missing segment templates with OpenRouter")
+    s.set_defaults(func=cmd_templates_warm)
+    s = tpl.add_parser("export", help="write generated templates to the committed seed file")
+    s.add_argument("--path", default="data/templates.seed.json")
+    s.set_defaults(func=cmd_templates_export)
 
     s = sub.add_parser("suppress", help="add a contact's email to the suppression list")
     s.add_argument("email")
