@@ -71,6 +71,45 @@ def cmd_advance(args, settings) -> int:
     return 0
 
 
+def cmd_review_list(args, settings) -> int:
+    conn = _open(settings)
+    rows = conn.execute(
+        "SELECT r.*, c.email FROM review_items r JOIN contacts c ON c.id=r.contact_id "
+        "WHERE r.resolved_at IS NULL ORDER BY r.id").fetchall()
+    for r in rows:
+        print(f"#{r['id']:<6} {r['kind']:<14} {r['reason']:<22} {r['email']:<40} {r['created_at']}")
+    print(f"{len(rows)} open item(s)")
+    return 0
+
+
+def cmd_review_resolve(args, settings) -> int:
+    from . import actions
+    conn = _open(settings)
+    actions.resolve_review(conn, args.id, args.action, args.days, args.note, settings)
+    print(f"review item #{args.id}: {args.action}")
+    return 0
+
+
+def cmd_mailbox_resume(args, settings) -> int:
+    from . import actions
+    conn = _open(settings)
+    actions.resume_mailbox(conn, args.id)
+    print(f"mailbox {args.id} resumed")
+    return 0
+
+
+def cmd_suppress(args, settings) -> int:
+    from . import actions
+    conn = _open(settings)
+    row = conn.execute("SELECT id FROM contacts WHERE email=?", (args.email,)).fetchone()
+    if row is None:
+        print(f"no contact with email {args.email}", file=sys.stderr)
+        return 1
+    actions.suppress_contact(conn, row["id"])
+    print(f"{args.email} suppressed")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="coldemailer", description="Cold-email outreach engine")
     p.add_argument("--db", help="database path (default from .env or data/coldemailer.db)")
@@ -92,6 +131,25 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--hours", type=float, default=0)
     s.add_argument("--step", type=float, default=1, help="hours per cycle (default 1)")
     s.set_defaults(func=cmd_advance)
+
+    review = sub.add_parser("review", help="the human review queue").add_subparsers(dest="sub", required=True)
+    s = review.add_parser("list", help="open review items")
+    s.set_defaults(func=cmd_review_list)
+    s = review.add_parser("resolve", help="resolve an item")
+    s.add_argument("id", type=int)
+    s.add_argument("action", help="retry_now | retry_later | mark_bounced | suppress | label:<label>")
+    s.add_argument("--days", type=int, default=3)
+    s.add_argument("--note")
+    s.set_defaults(func=cmd_review_resolve)
+
+    mailbox = sub.add_parser("mailbox", help="mailbox actions").add_subparsers(dest="sub", required=True)
+    s = mailbox.add_parser("resume", help="resume a paused mailbox")
+    s.add_argument("id", type=int)
+    s.set_defaults(func=cmd_mailbox_resume)
+
+    s = sub.add_parser("suppress", help="add a contact's email to the suppression list")
+    s.add_argument("email")
+    s.set_defaults(func=cmd_suppress)
     return p
 
 
@@ -106,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(1)
     except Exception as e:
         from .clock import RunLocked
-        if isinstance(e, RunLocked):
+        if isinstance(e, (RunLocked, ValueError)):
             print(str(e), file=sys.stderr)
             raise SystemExit(1)
         raise
