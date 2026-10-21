@@ -35,8 +35,8 @@ def cmd_seed(args, settings) -> int:
 def print_stats(label: str, st) -> None:
     deferred = ", ".join(f"{k} {v:,}" for k, v in sorted(st.deferred.items())) or "none"
     print(f"{label}: sent {st.sent:,} | replies {st.replies:,} | ooo {st.ooo:,} | unsubscribed {st.unsubscribed:,} "
-          f"· bounces {st.bounces:,} | soft {st.soft_bounces:,} | held {st.held:,} | deactivated {st.deactivated:,} "
-          f"· deferred [{deferred}]")
+          f"| bounces {st.bounces:,} | soft {st.soft_bounces:,} | held {st.held:,} | deactivated {st.deactivated:,} "
+          f"| deferred [{deferred}]")
 
 
 def cmd_run(args, settings) -> int:
