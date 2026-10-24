@@ -48,8 +48,11 @@ def run(conn, settings) -> dict:
     checks.append(_check("Status matches the event history", bad, "contact status differs from its events"))
 
     sent_counts = dict(conn.execute("SELECT contact_id, COUNT(*) FROM sends WHERE state='sent' GROUP BY 1").fetchall())
-    bad = [cid for cid, c in contacts.items() if c["step"] != sent_counts.get(cid, 0)]
-    checks.append(_check("Step equals emails actually sent", bad, "contacts.step != sent sends"))
+    expected = {s: i for i, s in enumerate(lifecycle.STATUS_BY_STEP)} | {"deactivated": 4}
+    bad = [cid for cid, c in contacts.items() if c["step"] != sent_counts.get(cid, 0)
+           or (c["status"] in expected and c["step"] != expected[c["status"]])]
+    checks.append(_check("Step equals emails actually sent, and fits the status", bad,
+                         "contacts.step != sent sends, or a status like follow_up_1_sent with the wrong step"))
 
     bad = [r[0] for r in conn.execute(
         "SELECT send_id FROM send_attempts WHERE result='accepted' GROUP BY send_id HAVING COUNT(*) > 1")]

@@ -1,12 +1,15 @@
 """Regression tests for the findings of the whole-branch review."""
+import hashlib
 import json
+import time
 from dataclasses import replace
 
 import httpx
 import pytest
 
 from coldemailer import actions, clock, db, engine, report, runner, timeutil, verify
-from coldemailer.ai import classify
+from coldemailer.ai import classify, templates
+from coldemailer.config import load_settings
 from coldemailer.ai.openrouter import LLMClient
 from coldemailer.provider_mock import SendResult
 
@@ -136,3 +139,41 @@ def test_hanging_call_is_cut_at_the_deadline_and_chain_moves_on(conn, settings):
     assert c.chat([{"role": "user", "content": "x"}], "classify") == ("ok", "m2:free")
     statuses = [tuple(r) for r in conn.execute("SELECT model, status FROM llm_calls ORDER BY id")]
     assert statuses == [("slow:free", "error"), ("m2:free", "ok")]
+
+
+def test_advance_rejects_a_zero_step(conn, settings):
+    with pytest.raises(ValueError, match="greater than 0"):
+        runner.advance(conn, settings, 1, step_hours=0, llm=None)
+    with pytest.raises(ValueError, match="greater than 0"):
+        runner.start_job(settings, 1, step_hours=0)
+
+
+def test_new_job_closes_jobs_left_running_by_a_dead_process(settings):
+    conn = make_db(settings)
+    conn.execute("INSERT INTO jobs(kind, status, created_at) VALUES ('advance', 'running', '2026-10-01T00:00:00')")
+    job_id = runner.start_job(settings, 0)
+    end = time.time() + 10
+    while runner.job(conn, job_id)["status"] not in ("done", "error") and time.time() < end:
+        time.sleep(0.05)
+    stale = conn.execute("SELECT status, error FROM jobs WHERE id != ?", (job_id,)).fetchone()
+    assert stale["status"] == "error" and "interrupted" in stale["error"]
+    assert runner.job(conn, job_id)["status"] == "done"
+
+
+def test_unsubscribe_token_needs_the_secret():
+    a = templates.unsubscribe_token(7, 1, "secret-a")
+    assert a == templates.unsubscribe_token(7, 1, "secret-a")
+    assert a != templates.unsubscribe_token(7, 1, "secret-b")
+    assert a != hashlib.sha256(b"7:1").hexdigest()[:len(a)]  # not the old guessable hash
+
+
+def test_verify_catches_status_that_disagrees_with_step(tmp_path):
+    from coldemailer import seed, verify
+    s = load_settings(db_path=str(tmp_path / "v.db"), openrouter_api_key=None, openrouter_models=())
+    seed.run(s, n=200)
+    conn = db.connect(s.db_path)
+    assert verify.run(conn, s)["ok"]
+    cid = conn.execute("SELECT id FROM contacts WHERE status='first_sent' LIMIT 1").fetchone()[0]
+    conn.execute("UPDATE contacts SET status='follow_up_1_sent' WHERE id=?", (cid,))
+    check = next(c for c in verify.run(conn, s)["checks"] if c["name"].startswith("Step equals"))
+    assert not check["ok"]

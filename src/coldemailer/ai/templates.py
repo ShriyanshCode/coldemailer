@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -57,8 +58,9 @@ def pick(conn, segment: str, step: int, variant: str):
     return row
 
 
-def unsubscribe_token(contact_id: int, campaign_id: int = 1) -> str:
-    return hashlib.sha256(f"{contact_id}:{campaign_id}".encode()).hexdigest()[:16]
+def unsubscribe_token(contact_id: int, campaign_id: int = 1, secret: str = "dev-only-unsubscribe-secret") -> str:
+    """HMAC, not a plain hash: without the secret nobody can forge the link for someone else."""
+    return hmac.new(secret.encode(), f"{contact_id}:{campaign_id}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
 def _fill(text: str, values: dict) -> str:
@@ -68,9 +70,10 @@ def _fill(text: str, values: dict) -> str:
     return FIELD.sub(sub, text)
 
 
-def render(tpl, contact, mailbox_address: str, mailbox_id: int = 1, campaign_id: int = 1):
+def render(tpl, contact, mailbox_address: str, mailbox_id: int = 1, campaign_id: int = 1,
+           secret: str = "dev-only-unsubscribe-secret"):
     """-> (subject, body, headers). Unknown or empty fields stay as {field} so content.check catches them."""
-    token = unsubscribe_token(contact["id"], campaign_id)
+    token = unsubscribe_token(contact["id"], campaign_id, secret)
     url = f"https://unsub.example.test/u/{token}"
     values = {
         "first_name": contact["first_name"],

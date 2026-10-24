@@ -365,7 +365,8 @@ def _send_one(conn, settings, provider, cap, c, step: int, mb_id: int, mb_addr: 
             conn.execute("UPDATE contacts SET claimed_by=NULL, claim_expires_at=NULL WHERE id=?", (row["id"],))
             return False
         tpl = templates.pick(conn, row["segment"], step, row["variant"])
-        subject, body, headers = templates.render(tpl, row, mb_addr, mb_id, settings.campaign_id)
+        subject, body, headers = templates.render(tpl, row, mb_addr, mb_id, settings.campaign_id,
+                                                   settings.unsubscribe_secret)
         problems = content.check(subject, body)
         if existing is None:
             send_id = conn.execute(

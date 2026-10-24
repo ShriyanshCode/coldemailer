@@ -65,6 +65,10 @@ class Settings:
     ooo_default_days: int = 3
     ooo_cap_days: int = 14
 
+    # Unsubscribe links are signed with this, so nobody can build one for another contact.
+    # The default keeps seeded data reproducible; set UNSUBSCRIBE_SECRET in .env for anything real.
+    unsubscribe_secret: str = "dev-only-unsubscribe-secret"
+
     # AI
     openrouter_api_key: str | None = None
     openrouter_models: tuple[str, ...] = field(default_factory=tuple)
@@ -85,6 +89,8 @@ def load_settings(**overrides) -> Settings:
         env["db_path"] = os.environ["COLDEMAILER_DB"]
     if os.getenv("COLDEMAILER_SEED", "").strip():
         env["seed"] = int(os.environ["COLDEMAILER_SEED"])
+    if os.getenv("UNSUBSCRIBE_SECRET", "").strip():
+        env["unsubscribe_secret"] = os.environ["UNSUBSCRIBE_SECRET"].strip()
     key = os.getenv("OPENROUTER_API_KEY", "").strip()
     env["openrouter_api_key"] = key or None
     models = os.getenv("OPENROUTER_MODELS", "").strip()

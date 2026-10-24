@@ -86,5 +86,5 @@ def test_verify_catches_drift(tmp_path):
     result = verify.run(conn, s)
     assert not result["ok"]
     failed = [c for c in result["checks"] if not c["ok"]]
-    assert [c["name"] for c in failed] == ["Step equals emails actually sent"]
+    assert [c["name"] for c in failed] == ["Step equals emails actually sent, and fits the status"]
     assert str(cid) in failed[0]["detail"]

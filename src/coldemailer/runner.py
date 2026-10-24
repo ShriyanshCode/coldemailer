@@ -28,6 +28,8 @@ def advance(conn, settings, hours: float, step_hours: float = 1, on_progress: Pr
     """Advance the clock by `hours`, running a cycle per step. hours=0 runs one cycle now.
     `owner` must be unique per process: the run lock lets the same owner re-enter."""
     db.require_initialised(conn)
+    if step_hours <= 0:
+        raise ValueError("step must be greater than 0 hours")
     owner = owner or f"cli:{os.getpid()}:{threading.get_ident()}"
     if llm == "auto":
         llm = default_llm(conn, settings)
@@ -54,6 +56,8 @@ def advance(conn, settings, hours: float, step_hours: float = 1, on_progress: Pr
 
 def start_job(settings, hours: float, step_hours: float = 1) -> int:
     """Run `advance` in a background thread with its own connection. Raises RunLocked if busy."""
+    if step_hours <= 0:
+        raise ValueError("step must be greater than 0 hours")
     conn = db.connect(settings.db_path)
     db.require_initialised(conn)
     created = datetime.now().isoformat(timespec="seconds")
@@ -64,6 +68,9 @@ def start_job(settings, hours: float, step_hours: float = 1) -> int:
         conn.execute("DELETE FROM jobs WHERE id=?", (job_id,))
         conn.close()
         raise clock.RunLocked("another run is in progress")
+    # We hold the run lock, so any other unfinished job belonged to a process that died mid-run.
+    conn.execute("UPDATE jobs SET status='error', error='interrupted: the process running it stopped', finished_at=? "
+                 "WHERE id != ? AND status IN ('pending', 'running')", (created, job_id))
     total = max(1, math.ceil(hours / step_hours)) if hours > 0 else 1
     conn.execute("UPDATE jobs SET status='running', total=? WHERE id=?", (total, job_id))
     conn.close()

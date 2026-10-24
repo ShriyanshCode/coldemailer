@@ -191,7 +191,8 @@ def run(settings, n: int = 10000, seed: int = 42) -> dict:
                 send_id += 1
                 last_send_id = send_id
                 subject, body, headers = templates.render(tpl_for(industry, step, contact["variant"]),
-                                                          contact, mb["address"], mailbox_id, camp)
+                                                          contact, mb["address"], mailbox_id, camp,
+                                                          settings.unsubscribe_secret)
                 bounced = status == "bounced" and step == k
                 sends.append((send_id, cid, step, mailbox_id, subject, body, json.dumps(headers),
                               _key(cid, step, camp, "import"), "bounced" if bounced else "sent", "import", at,

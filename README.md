@@ -32,7 +32,7 @@ python -m coldemailer report
 python -m coldemailer serve
 ```
 
-Run the tests with `pytest -q` (83 tests, about 7 seconds).
+Run the tests with `pytest -q` (87 tests, about 7 seconds).
 
 ## Commands
 
@@ -134,7 +134,7 @@ Each layer stops a different failure:
 `verify` checks the result from the other direction. Its 12 checks:
 
 - Each contact's status matches what its event history implies.
-- `step` equals the number of emails actually sent.
+- `step` equals the number of emails actually sent, and fits the status (`follow_up_1_sent` means two sent).
 - No step was sent twice, and no attempt was accepted twice.
 - Nothing was sent after the address was suppressed.
 - Stopped contacts have no next action.
@@ -193,7 +193,7 @@ Each layer stops a different failure:
   - follow-ups keep the same mailbox so the email thread stays consistent, while each first email goes to whichever active mailbox can send soonest (most room left breaks ties), so every mailbox's paced slots get used rather than queueing behind the biggest one. On a 3-day 10k run this lifted day-one capacity use from 73% to 92% and cut pacing deferrals by three quarters.
   - The "Sends per hour" chart shows the result.
 - **Auto-pause** triggers when a mailbox's bounce rate (hard bounces plus policy rejections) is over 5% across its last 200 attempts (once it has at least 100), or its complaint rate is over 0.3% across its last 2,000 (once it has at least 1,000). Resuming is a human action, and after a resume only new attempts count, so the old bounces don't pause it again straight away.
-- **Suppression list**, an **unsubscribe link** in every body, and **`List-Unsubscribe` + `List-Unsubscribe-Post: One-Click`** headers on every send.
+- **Suppression list**, an **unsubscribe link** in every body (its token is an HMAC of the contact and campaign, so nobody can build the link for someone else; set `UNSUBSCRIBE_SECRET` in `.env`, the default only keeps the demo reproducible), and **`List-Unsubscribe` + `List-Unsubscribe-Post: One-Click`** headers on every send.
 - **Content checks** before every send, **sending windows** in the prospect's timezone, and a **per-recipient-domain cap** of 50 a day.
 
 ## Results
@@ -244,7 +244,7 @@ This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14
 
 ## Tests
 
-`pytest -q` runs 83 tests in about 7 seconds:
+`pytest -q` runs 87 tests in about 7 seconds:
 
 - **Lifecycle:** a full sequence through to deactivation, a reply stopping it, out-of-office pushing it, hard bounces, unsubscribes and complaints, soft-bounce retries through to review, and policy rejections.
 - **Exactly-once:** running the same clock twice, running the same interval twice, a crash after the provider accepted, a crash before it, a reply landing in the same cycle a follow-up is due, the run lock, the clock refusing to go backwards.
@@ -252,7 +252,7 @@ This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14
 - **Seed and verify:** the seed is deterministic, matches the status mix and has consistent history; `verify` passes after seeding and advancing and catches deliberate drift.
 - **AI:** 429 retries, the model chain and cool-downs, total failure, the token bucket, the rules classifier against the corpus, return-date parsing, batched LLM labelling and review, template validation. All of it uses mocked HTTP and a fake clock.
 - **API:** every endpoint, the job lock (409), and an empty database.
-- **Review regressions:** crash recovery not reviving a contact who replied or was suppressed, deferral dedupe when reasons alternate, a resumed mailbox judged only on new sends, no sleeping on a 429 inside a cycle, out-of-office with a real answer, and the reply KPI matching its drawer.
+- **Review regressions:** crash recovery not reviving a contact who replied or was suppressed, deferral dedupe when reasons alternate, a resumed mailbox judged only on new sends, no sleeping on a 429 inside a cycle, out-of-office with a real answer, the reply KPI matching its drawer, a zero `--step` being refused, jobs left running by a dead process being closed, unsubscribe tokens needing the secret, and `verify` catching a status that disagrees with the step.
 
 ## Trade-offs, known limitations, what I'd build next
 
