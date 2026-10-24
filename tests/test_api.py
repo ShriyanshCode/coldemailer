@@ -30,6 +30,19 @@ def wait_for(api, job_id, timeout=30):
     raise AssertionError("job did not finish")
 
 
+def test_sent_today_ignores_earlier_days(api, seeded):
+    from coldemailer import engine, timeutil
+    conn = db.connect(seeded.db_path)
+    now = clock.now(conn)
+    before = api.get("/api/overview").json()["kpis"]
+    with db.tx(conn):
+        engine.event(conn, "sent", now, 1, step=1, mailbox="x")
+        engine.event(conn, "sent", timeutil.add(now, days=-2), 1, step=1, mailbox="x")
+    k = api.get("/api/overview").json()["kpis"]
+    assert k["sent_today"] == before["sent_today"] + 1
+    assert k["sent_range"] == before["sent_range"] + 2  # the default range is the last 7 days
+
+
 def test_overview_shape(api):
     d = api.get("/api/overview").json()
     for key in ("kpis", "statuses", "markers", "replies", "classifiers", "hours", "deferred", "due",

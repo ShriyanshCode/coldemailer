@@ -151,7 +151,8 @@ def cmd_report(args, settings) -> int:
     for s in r["statuses"]:
         print(f"  {s['label']:<18} {s['count']:>8,}  {s['count'] / max(k['total'], 1):6.1%}")
     print(f"\n  on hold (review)   {r['markers']['on_hold']:>8,}\n  paused for OOO     {r['markers']['paused_ooo']:>8,}")
-    print(f"\nSent in range        {k['sent_range']:>8,}  (mailbox capacity {k['capacity_range']:,})")
+    print(f"\nSent today           {k['sent_today']:>8,}")
+    print(f"Sent in range        {k['sent_range']:>8,}  (mailbox capacity {k['capacity_range']:,})")
     print(f"Due today            {k['due_today']:>8,}\nDue tomorrow         {k['due_tomorrow']:>8,}")
     for d in r["due"]:
         print(f"  {d['label']:<18} {d['today']:>8,} today  {d['tomorrow']:>6,} tomorrow")

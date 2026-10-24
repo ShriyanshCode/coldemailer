@@ -94,6 +94,7 @@ def overview(conn, settings, day_from: str | None = None, day_to: str | None = N
     statuses = [{"key": k, "label": v, "count": counts.get(k, 0)} for k, v in STATUS_LABELS.items()]
 
     sent_range = _one(conn, "SELECT COUNT(*) FROM events WHERE type='sent' AND occurred_at>=? AND occurred_at<?", (r0, r1))
+    sent_today = _one(conn, "SELECT COUNT(*) FROM events WHERE type='sent' AND occurred_at>=? AND occurred_at<?", (t0, t1))
     hard_range = _one(conn, "SELECT COUNT(*) FROM events WHERE type='hard_bounced' AND occurred_at>=? AND occurred_at<?",
                       (r0, r1))
     mbs = conn.execute("SELECT * FROM mailboxes").fetchall()
@@ -107,7 +108,7 @@ def overview(conn, settings, day_from: str | None = None, day_to: str | None = N
     open_reviews = _one(conn, "SELECT COUNT(*) FROM review_items WHERE resolved_at IS NULL")
 
     kpis = {
-        "sent_range": sent_range, "capacity_range": capacity, "range_days": len(_days(day_from, day_to)),
+        "sent_today": sent_today, "sent_range": sent_range, "capacity_range": capacity, "range_days": len(_days(day_from, day_to)),
         "due_today": sum(v[0] for v in due.values()), "due_tomorrow": sum(v[1] for v in due.values()),
         "replied": genuine, "contacted": contacted, "reply_rate": genuine / contacted if contacted else 0,
         "hard_bounces": hard_range, "sends_range": sent_range + hard_range,
