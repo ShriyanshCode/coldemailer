@@ -18,7 +18,7 @@ export function Review() {
     <${StateBox} q=${q} empty=${d => !d.length}>${items => html`<div class="rows" style=${{ gap: 12 }}>
       ${items.map(r => html`<div class="card" style=${{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, opacity: r.resolved ? 0.6 : 1 }}>
         <div class="row" style=${{ flexWrap: 'wrap', gap: 12 }}>
-          <div class="click" style=${{ cursor: 'pointer' }} onClick=${() => openContact(r.contact_id)}>
+          <div class="contact-chip" title="Open contact" onClick=${() => openContact(r.contact_id)}>
             <div style=${{ fontWeight: 500 }}>${r.name} <span class="mute2" style=${{ fontWeight: 400, fontSize: 12 }}>· ${r.company}</span></div>
             <div class="mono mute" style=${{ fontSize: 11 }}>${r.email}</div></div>
           <div style=${{ display: 'flex', gap: 14, fontSize: 12, alignItems: 'center' }} class="mute">
