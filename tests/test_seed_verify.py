@@ -2,6 +2,8 @@ import hashlib
 import sqlite3
 from datetime import date
 
+import pytest
+
 from coldemailer import db, runner, seed, timeutil, verify
 from coldemailer.config import load_settings
 
@@ -25,6 +27,25 @@ def test_seed_deterministic(tmp_path):
     seed.run(a, n=500, seed=42)
     seed.run(b, n=500, seed=42)
     assert table_hash(a.db_path) == table_hash(b.db_path)
+
+
+def test_seed_from_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("COLDEMAILER_SEED", "7")
+    assert real_settings(tmp_path).seed == 7
+    monkeypatch.setenv("COLDEMAILER_SEED", "")
+    assert real_settings(tmp_path).seed == 42
+
+
+def test_seed_cli_uses_env_seed_unless_flag_given(tmp_path, monkeypatch):
+    from coldemailer import cli
+    calls = []
+    monkeypatch.setattr(seed, "run", lambda s, n, seed: calls.append(seed) or
+                        {"contacts": 0, "sends": 0, "events": 0, "seconds": 0, "counts": {}})
+    monkeypatch.setenv("COLDEMAILER_SEED", "7")
+    for extra in ([], ["--seed", "3"]):
+        with pytest.raises(SystemExit):
+            cli.main(["--db", str(tmp_path / "x.db"), "seed", *extra])
+    assert calls == [7, 3]
 
 
 def test_seed_counts_match_mix(tmp_path):

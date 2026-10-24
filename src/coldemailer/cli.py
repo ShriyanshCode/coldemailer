@@ -24,7 +24,7 @@ def cmd_init_db(args, settings) -> int:
 
 def cmd_seed(args, settings) -> int:
     from . import seed
-    result = seed.run(settings, n=args.n, seed=args.seed)
+    result = seed.run(settings, n=args.n, seed=settings.seed if args.seed is None else args.seed)
     print(f"seeded {result['contacts']:,} contacts, {result['sends']:,} historical sends, "
           f"{result['events']:,} events in {result['seconds']}s")
     for status, n in sorted(result["counts"].items(), key=lambda kv: -kv[1]):
@@ -215,7 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("seed", help="wipe the database and seed contacts with history")
     s.add_argument("--n", type=int, default=10000)
-    s.add_argument("--seed", type=int, default=42)
+    s.add_argument("--seed", type=int, default=None, help="default from COLDEMAILER_SEED in .env, else 42")
     s.set_defaults(func=cmd_seed)
 
     s = sub.add_parser("run", help="run one cycle at the current simulated time")

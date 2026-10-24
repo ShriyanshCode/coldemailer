@@ -32,13 +32,13 @@ python -m coldemailer report
 python -m coldemailer serve
 ```
 
-Run the tests with `pytest -q` (74 tests, about 7 seconds).
+Run the tests with `pytest -q` (77 tests, about 7 seconds).
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `seed [--n 10000] [--seed 42]` | Wipes `data/coldemailer.db` and seeds contacts. Each one gets a random place in the sequence with matching history. Same seed, same data. |
+| `seed [--n 10000] [--seed 42]` | Wipes `data/coldemailer.db` and seeds contacts. Each one gets a random place in the sequence with matching history. Same seed, same data. The seed defaults to `COLDEMAILER_SEED` in `.env` (42 in `.env.example`). |
 | `run` | Runs one cycle at the current simulated time. Run it twice and nothing is sent twice. |
 | `advance --days N` / `--hours N` | Moves the clock forward, running one cycle per simulated hour (`--step` changes that). |
 | `report [--from DAY --to DAY] [--json]` | Counts by status, sent in range, due today/tomorrow by step, reply and bounce rates, deactivated, suppression, deferrals. Days are IST. |
@@ -222,23 +222,9 @@ Run on my machine (Windows 11, Intel 12-thread laptop CPU, Python 3.12.7, SQLite
 - Reply labels: 1,738 by rules and 103 by the LLM, with **97.6% agreement** with the simulator's ground truth (951 checked).
 - There were 121 LLM calls: 95 succeeded and 26 got a 429. A 429 puts the model on cool-down instead of being retried, and every success came from the fallback model because Gemma 4 was rate-limited throughout.
 
-### 100,000 contacts, 14 simulated days (scale check, no AI)
-
-This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14 --no-ai`. It was measured before the final review fixes, so its reply rate uses the earlier definition (any non-OOO reply). Full report: [`docs/results/run-100k.md`](docs/results/run-100k.md).
-
-| Phase | Wall time |
-|---|---|
-| Seed 100,000 contacts with history (133,537 history sends) | 33 s |
-| Advance 14 days (336 hourly cycles) | 8 min 7 s (~35 s per simulated day) |
-| `verify` (12 checks) | 4.0 s, **all pass** |
-
-- 29,504 emails were sent. Reply rate was 16.9%, bounce rate 2.0%, and classifier agreement with ground truth 98.4%.
-- All 40,000 `new` contacts are still unsent after 14 days, and that's by design. With 20 warming mailboxes (at most 4,000 sends a day), the 60,000 contacts already in the sequence use all the capacity, and follow-ups always go before first emails. The fix is more mailboxes, not more code: `mailbox_count` in `config.py`.
-- The cost per cycle grows with the number of due-but-deferred contacts, because each one is re-checked every hour. That's fine at this size. At millions, I'd defer by moving `next_action_at` to the next moment a mailbox has room, rather than re-checking every hour.
-
 ## Tests
 
-`pytest -q` runs 74 tests in about 7 seconds:
+`pytest -q` runs 77 tests in about 7 seconds:
 
 - **Lifecycle:** a full sequence through to deactivation, a reply stopping it, out-of-office pushing it, hard bounces, unsubscribes and complaints, soft-bounce retries through to review, and policy rejections.
 - **Exactly-once:** running the same clock twice, running the same interval twice, a crash after the provider accepted, a crash before it, a reply landing in the same cycle a follow-up is due, the run lock, the clock refusing to go backwards.

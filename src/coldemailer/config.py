@@ -83,6 +83,8 @@ def load_settings(**overrides) -> Settings:
     env: dict = {}
     if os.getenv("COLDEMAILER_DB"):
         env["db_path"] = os.environ["COLDEMAILER_DB"]
+    if os.getenv("COLDEMAILER_SEED", "").strip():
+        env["seed"] = int(os.environ["COLDEMAILER_SEED"])
     key = os.getenv("OPENROUTER_API_KEY", "").strip()
     env["openrouter_api_key"] = key or None
     models = os.getenv("OPENROUTER_MODELS", "").strip()
