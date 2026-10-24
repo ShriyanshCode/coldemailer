@@ -11,6 +11,10 @@ import { Logs } from './tabs/logs.js';
 
 const TABS = [['dash', 'Dashboard'], ['contacts', 'Contacts'], ['review', 'Review'], ['mail', 'Mailboxes'],
   ['ai', 'AI & Templates'], ['logs', 'Logs']];
+// Each tab has a hash route (#/review), so a reload or a shared link lands on the same tab.
+const SLUGS = { dash: 'dashboard', contacts: 'contacts', review: 'review', mail: 'mailboxes', ai: 'ai', logs: 'logs' };
+const tabFromHash = () =>
+  Object.keys(SLUGS).find(k => SLUGS[k] === location.hash.replace(/^#\/?/, '')) || 'dash';
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const shiftDay = (day, n) => {
@@ -171,7 +175,8 @@ function Shell() {
 
 function App() {
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem('theme') || 'light'; } catch { return 'light'; } });
-  const [tab, setTab] = useState('dash');
+  const [tab, setTabState] = useState(tabFromHash);
+  const setTab = k => { location.hash = `/${SLUGS[k]}`; setTabState(k); };
   const [rev, setRev] = useState(0);
   const [range, setRange] = useState({ from: null, to: null, preset: 7 });
   const [drawer, setDrawer] = useState(null);
@@ -179,6 +184,12 @@ function App() {
   const [toastMsg, setToast] = useState(null);
   const [job, setJob] = useState(null);
   const toastTimer = useRef();
+
+  useEffect(() => {
+    const onHash = () => setTabState(tabFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
