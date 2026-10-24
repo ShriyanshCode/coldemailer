@@ -178,6 +178,11 @@ Each layer stops a different failure:
   - Every HTTP attempt is logged in `llm_calls` and as an `ai_call` event; the AI & Templates tab shows calls, 429s, retries and fallbacks per model.
   - In my runs Gemma 4 returned 429 almost every time, and the chain moved on to MiniMax automatically.
 - **The daily cap is the real limit.** My key is on OpenRouter's free tier, which allows **50 free-model requests a day across all `:free` models** (1,000 a day after adding $10 of credit), resetting at 00:00 UTC. Per-minute limits are handled by the token bucket and cool-downs above; the daily cap can't be retried away. In the 10k run below, **53 of the 94 AI calls got a 429** because the key ran out of its 50 for the day partway through, so every model in the chain answered 429 and the keyword fallback labelled the rest. Nothing waited on it and no send was affected. With a credited key, or the run started on a fresh day's budget, the LLM handles more of the replies the rules leave over.
+- **What I'd do in production, against what this does now with one free key:**
+  1. **Buy more capacity.** A paid tier or reserved throughput (OpenRouter credits alone lift the cap to 1,000 a day). Now: one free-tier key, 50 a day.
+  2. **Route across models and providers.** A gateway (LiteLLM, Portkey) that fails over between providers, not just models. Now: a three-model `:free` chain with per-model cool-downs.
+  3. **Send fewer requests.** Already the core of the design: 40 cached templates instead of one call per email, rules before the LLM, 10 replies per call. Next: a semantic cache for repeated reply wording.
+  4. **Absorb the bursts.** A queue with workers draining at the allowed rate, user-facing work ahead of batch jobs. Now: a token bucket, no sleeping inside a cycle, and a fallback so no send ever waits on a model.
 
 ## Warm-up and spam management (bonus)
 
