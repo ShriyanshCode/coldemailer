@@ -32,7 +32,7 @@ python -m coldemailer report
 python -m coldemailer serve
 ```
 
-Run the tests with `pytest -q` (82 tests, about 7 seconds).
+Run the tests with `pytest -q` (83 tests, about 7 seconds).
 
 ## Commands
 
@@ -41,7 +41,7 @@ Run the tests with `pytest -q` (82 tests, about 7 seconds).
 | `seed [--n 10000] [--seed 42]` | Wipes `data/coldemailer.db` and seeds contacts. Each one gets a random place in the sequence with matching history. Same seed, same data. The seed defaults to `COLDEMAILER_SEED` in `.env` (42 in `.env.example`). |
 | `run` | Runs one cycle at the current simulated time. Run it twice and nothing is sent twice. |
 | `advance --days N` / `--hours N` | Moves the clock forward, running one cycle per simulated hour (`--step` changes that). |
-| `report [--from DAY --to DAY] [--json]` | Counts by status, sent in range, due today/tomorrow by step, reply and bounce rates, deactivated, suppression, deferrals. Days are IST. |
+| `report [--from DAY --to DAY] [--json]` | Counts by status, sent today, sent in range (default: the last 7 days), due today/tomorrow by step, reply and bounce rates, deactivated, suppression, deferrals. Days are IST. |
 | `verify` | Checks 12 invariants over the whole database (listed below). Exits 2 if any fail. |
 | `contact <email>` | One contact's facts and full timeline. |
 | `review list` / `review resolve <id> <action>` | The human review queue (`retry_now`, `retry_later`, `mark_bounced`, `suppress`, `label:<label>`). |
@@ -50,7 +50,7 @@ Run the tests with `pytest -q` (82 tests, about 7 seconds).
 | `templates warm` / `templates export` | Generates the per-segment templates with OpenRouter / writes them to `data/templates.seed.json`. |
 | `serve [--port 8000]` | The API (`/docs` for the schema) and the dashboard. |
 
-The dashboard has six tabs. **Dashboard** shows the KPIs, funnel, reply labels, sends per hour, deferrals, due-next, suppression, health and campaign settings. **Contacts** is every contact, filterable and paged. **Review** holds the human queue. **Mailboxes** shows warm-up ramps and auto-pauses. **AI & Templates** shows calls, 429s, fallbacks and the template cache; click any number to see the rows behind it, such as which emails used an AI-written template or which replies the LLM labelled. **Logs** has every event with filters and live tail; click a row to see the email that was sent (and whether AI wrote it), its delivery attempts, any reply with who classified it, or why a send was deferred. The clock button in the header advances time from the browser.
+The dashboard has six tabs. **Dashboard** shows the KPIs, funnel, reply labels, sends per hour, deferrals, due-next, suppression, health and campaign settings. **Contacts** is every contact, filterable and paged. **Review** holds the human queue. **Mailboxes** shows each mailbox's warm-up schedule, today's usage against today's limit, and auto-pauses. **AI & Templates** shows calls, 429s, fallbacks and the template cache; click any number to see the rows behind it, such as which emails used an AI-written template or which replies the LLM labelled. **Logs** has every event with filters and live tail; click a row to see the email that was sent (and whether AI wrote it), its delivery attempts, any reply with who classified it, or why a send was deferred. The clock button in the header advances time from the browser.
 
 ## How it works
 
@@ -156,7 +156,7 @@ Each layer stops a different failure:
 
 ## Where AI is used, and the rate limits
 
-**Models** (all `:free` on OpenRouter, set in `.env`, tried in order): `recursive/flint-v1.0:free` → `nvidia/nemotron-3.5-super-vl:free` → `poolside/laguna-s-2.1:free`. Free model IDs churn: the chain the 10k run used (Gemma 4 → MiniMax) has since gone 429/404, so check `https://openrouter.ai/api/v1/models` if a call returns 404. The 40 committed templates were written by MiniMax.
+**Models** (all `:free` on OpenRouter, set in `.env`, tried in order): `recursive/flint-v1.0:free` → `nvidia/nemotron-3.5-super-vl:free` → `poolside/laguna-s-2.1:free`. Free model IDs churn. Earlier runs used Gemma 4 → MiniMax, and MiniMax wrote the 40 committed templates; by the final 10k run below MiniMax returned 404 and Gemma 4 429, so that run used the chain above. Check `https://openrouter.ai/api/v1/models` if a call returns 404.
 
 - **Writing emails: templates per segment, not per contact.**
   - Calling a model once per email would mean 10,000+ calls, against free limits of about 20 a minute. Instead, `templates warm` writes one template per industry × step × variant: 5 × 4 × 2 = 40 calls, cached in the `templates` table.
@@ -176,7 +176,7 @@ Each layer stops a different failure:
   - Offline batch jobs (`templates warm`) are patient instead: up to 3 tries per model with `Retry-After` or exponential back-off with jitter, and one wait for the earliest cool-down before giving up.
   - If the whole chain fails, write an `ai_fallback` event and use the static template or keyword label.
   - Every HTTP attempt is logged in `llm_calls` and as an `ai_call` event; the AI & Templates tab shows calls, 429s, retries and fallbacks per model.
-  - In my runs Gemma 4 returned 429 almost every time, and the chain moved on to MiniMax automatically.
+  - In the earlier runs Gemma 4 returned 429 almost every time, and the chain moved on to MiniMax automatically.
 - **The daily cap is the real limit.** My key is on OpenRouter's free tier, which allows **50 free-model requests a day across all `:free` models** (1,000 a day after adding $10 of credit), resetting at 00:00 UTC. Per-minute limits are handled by the token bucket and cool-downs above; the daily cap can't be retried away. In the 10k run below, **53 of the 94 AI calls got a 429** because the key ran out of its 50 for the day partway through, so every model in the chain answered 429 and the keyword fallback labelled the rest. Nothing waited on it and no send was affected. With a credited key, or the run started on a fresh day's budget, the LLM handles more of the replies the rules leave over.
 - **What I'd do in production, against what this does now with one free key:**
   1. **Buy more capacity.** A paid tier or reserved throughput (OpenRouter credits alone lift the cap to 1,000 a day). Now: one free-tier key, 50 a day.
@@ -186,13 +186,13 @@ Each layer stops a different failure:
 
 ## Warm-up and spam management (bonus)
 
-- **20 mailboxes with warm-up.** The daily limit starts at 20, rises by 10 a day and caps at 200, with start dates staggered. The Mailboxes tab shows each mailbox's 28-day ramp against what it actually sent.
+- **20 mailboxes with warm-up.** The daily limit starts at 20, rises by 10 a day and caps at 200, with start dates staggered. The Mailboxes tab shows today's usage against today's limit for each mailbox, and its 28-day ramp against what it actually sent.
 - **Sends spread out, not in bursts.** There are three layers to this:
   - each follow-up is scheduled at a random minute inside the prospect's window;
   - each mailbox keeps a minimum gap between sends (a 9-hour day divided by today's limit);
   - follow-ups keep the same mailbox so the email thread stays consistent, while each first email goes to whichever active mailbox can send soonest (most room left breaks ties), so every mailbox's paced slots get used rather than queueing behind the biggest one. On a 3-day 10k run this lifted day-one capacity use from 73% to 92% and cut pacing deferrals by three quarters.
   - The "Sends per hour" chart shows the result.
-- **Auto-pause** triggers when a mailbox's bounce rate (hard bounces plus policy rejections) is over 5% across its last 200 attempts, or its complaint rate is over 0.3% across its last 2,000. Resuming is a human action, and after a resume only new attempts count, so the old bounces don't pause it again straight away.
+- **Auto-pause** triggers when a mailbox's bounce rate (hard bounces plus policy rejections) is over 5% across its last 200 attempts (once it has at least 100), or its complaint rate is over 0.3% across its last 2,000 (once it has at least 1,000). Resuming is a human action, and after a resume only new attempts count, so the old bounces don't pause it again straight away.
 - **Suppression list**, an **unsubscribe link** in every body, and **`List-Unsubscribe` + `List-Unsubscribe-Post: One-Click`** headers on every send.
 - **Content checks** before every send, **sending windows** in the prospect's timezone, and a **per-recipient-domain cap** of 50 a day.
 
@@ -200,7 +200,7 @@ Each layer stops a different failure:
 
 ### 10,000 contacts, 60 simulated days
 
-Run on my machine (Windows 11, Intel 12-thread laptop CPU, Python 3.12.7, SQLite 3.45.3) with the OpenRouter key on. Full report: [`docs/results/run-10k.md`](docs/results/run-10k.md).
+Reproduce it with `python scripts/full_run.py --n 10000 --days 60` (add `--no-ai` to skip OpenRouter). Run on my machine (Windows 11, Intel 12-thread laptop CPU, Python 3.12.7, SQLite 3.45.3) with the OpenRouter key on. Full report: [`docs/results/run-10k.md`](docs/results/run-10k.md).
 
 | Phase | Wall time |
 |---|---|
@@ -244,7 +244,7 @@ This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14
 
 ## Tests
 
-`pytest -q` runs 82 tests in about 7 seconds:
+`pytest -q` runs 83 tests in about 7 seconds:
 
 - **Lifecycle:** a full sequence through to deactivation, a reply stopping it, out-of-office pushing it, hard bounces, unsubscribes and complaints, soft-bounce retries through to review, and policy rejections.
 - **Exactly-once:** running the same clock twice, running the same interval twice, a crash after the provider accepted, a crash before it, a reply landing in the same cycle a follow-up is due, the run lock, the clock refusing to go backwards.
