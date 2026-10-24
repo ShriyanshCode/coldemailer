@@ -55,19 +55,31 @@ class Capacity:
     def domain_remaining(self, domain: str, day: str) -> int:
         return self.s.domain_daily_cap - self.dom_used.get((domain, day), 0)
 
-    def pick_mailbox(self, contact, day: str) -> tuple[int | None, str | None]:
-        """Sticky mailbox for follow-ups; for first sends (or a paused sticky one) the active mailbox
-        with the most room today."""
+    def pick_mailbox(self, contact, earliest: str, skip=()) -> tuple[int | None, str | None, str | None]:
+        """(mailbox, slot, reason). Follow-ups keep their sticky mailbox. First sends (or a follow-up
+        whose mailbox is paused) go to whichever active mailbox can send soonest in this cycle, most
+        room left breaking ties, so every mailbox's paced slots get used instead of the roomiest
+        one's queue. On failure the mailbox is returned only for a sticky follow-up."""
         sticky = contact["mailbox_id"]
         if sticky and not self.mailboxes[sticky]["paused"]:
-            return sticky, None
-        active = [m for m in self.mailboxes.values() if not m["paused"]]
+            slot, reason = self.next_slot(sticky, earliest)
+            return sticky, slot, reason
+        active = [m["id"] for m in self.mailboxes.values() if not m["paused"]]
         if not active:
-            return None, "mailbox_paused"
-        best = max(active, key=lambda m: (self.remaining(m["id"], day), -m["id"]))
-        if self.remaining(best["id"], day) <= 0:
-            return None, "mailbox_capacity"
-        return best["id"], None
+            return None, None, "mailbox_paused"
+        day = timeutil.ist_day(max(earliest, self.sim_from))
+        best, reasons = None, set()
+        for mb_id in active:
+            if mb_id in skip:
+                continue
+            slot, reason = self.next_slot(mb_id, earliest)
+            if slot is None:
+                reasons.add(reason)
+            elif best is None or (slot, -self.remaining(mb_id, day), mb_id) < best:
+                best = (slot, -self.remaining(mb_id, day), mb_id)
+        if best is None:
+            return None, None, "pacing" if "pacing" in reasons else "mailbox_capacity"
+        return best[2], best[0], None
 
     def next_slot(self, mailbox_id: int, earliest: str) -> tuple[str | None, str | None]:
         """Earliest paced send time for this mailbox inside the cycle interval, or (None, reason)."""

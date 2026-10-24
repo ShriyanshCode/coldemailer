@@ -276,6 +276,7 @@ def _flush_deferred(conn, pending: list) -> None:
 def _send_due(conn, settings, provider, cap, sim_from: str, sim_to: str, stats: CycleStats, owner: str) -> set:
     touched: set[int] = set()
     exhausted: set[int] = set()
+    exhaust_reason = None  # why first sends ran out of mailboxes, for the bulk deferral
     day = timeutil.ist_day(sim_to)
     pending: list = []
     mailbox_addr = {m["id"]: m["address"] for m in cap.mailboxes.values()}
@@ -288,7 +289,7 @@ def _send_due(conn, settings, provider, cap, sim_from: str, sim_to: str, stats: 
         last = ("", 0)
         while True:
             if all_exhausted():
-                _bulk_defer(conn, cap, action, last, sim_to, day, stats)
+                _bulk_defer(conn, cap, action, last, sim_to, day, stats, exhaust_reason)
                 break
             rows = conn.execute(
                 "SELECT * FROM contacts WHERE next_action=? AND hold_reason IS NULL AND next_action_at <= ? "
@@ -298,13 +299,14 @@ def _send_due(conn, settings, provider, cap, sim_from: str, sim_to: str, stats: 
                 break
             for c in rows:
                 earliest = max(c["next_action_at"], sim_from)
-                mb_id, reason = cap.pick_mailbox(c, timeutil.ist_day(earliest))
-                if mb_id is None:
-                    _defer(pending, stats, c, reason, day, sim_to)
-                    continue
-                slot, reason = cap.next_slot(mb_id, earliest)
+                mb_id, slot, reason = cap.pick_mailbox(c, earliest, exhausted)
                 if slot is None:
-                    exhausted.add(mb_id)
+                    if mb_id is not None:
+                        exhausted.add(mb_id)  # this sticky mailbox has no slot left this cycle
+                    elif reason != "mailbox_paused":
+                        # No mailbox has a slot for this send; later due contacts can't do better.
+                        exhausted.update(m["id"] for m in cap.mailboxes.values() if not m["paused"])
+                        exhaust_reason = reason
                     _defer(pending, stats, c, reason, day, sim_to)
                     continue
                 slot, reason = policies.gate(c, slot, cap, settings)
@@ -320,9 +322,12 @@ def _send_due(conn, settings, provider, cap, sim_from: str, sim_to: str, stats: 
     return touched
 
 
-def _bulk_defer(conn, cap, action: str, last: tuple, sim_to: str, day: str, stats: CycleStats) -> None:
+def _bulk_defer(conn, cap, action: str, last: tuple, sim_to: str, day: str, stats: CycleStats,
+                reason: str | None = None) -> None:
     """Every mailbox is out of room: defer the rest of this action's due contacts in one statement."""
-    reason = "mailbox_paused" if all(m["paused"] for m in cap.mailboxes.values()) else "mailbox_capacity"
+    if all(m["paused"] for m in cap.mailboxes.values()):
+        reason = "mailbox_paused"
+    reason = reason or "mailbox_capacity"
     where = ("next_action=? AND hold_reason IS NULL AND next_action_at <= ? AND (next_action_at, id) > (?, ?)")
     args = (action, sim_to, last[0], last[1])
     n = conn.execute(f"SELECT COUNT(*) n FROM contacts WHERE {where}", args).fetchone()["n"]

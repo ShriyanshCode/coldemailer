@@ -129,3 +129,28 @@ def test_content_block_holds_contact(conn, settings):
     assert conn.execute("SELECT COUNT(*) FROM send_attempts").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM events WHERE type='content_blocked'").fetchone()[0] == 1
     assert sends(conn, cid)[0]["state"] == "blocked"
+
+
+def test_first_emails_use_every_mailbox_with_a_free_slot(settings):
+    # Two warm mailboxes, 100/day and 90/day: each can pace roughly 10 sends an hour.
+    conn = make_db(settings, mailboxes=2, limit=100)
+    conn.execute("UPDATE mailboxes SET start_limit=90, max_limit=90 WHERE id=2")
+    for _ in range(40):
+        make_contact(conn)
+    tick(conn, settings, 1)
+    by_mailbox = dict(conn.execute("SELECT mailbox_id, COUNT(*) FROM sends WHERE state='sent' GROUP BY 1").fetchall())
+    assert by_mailbox.get(1, 0) >= 10 and by_mailbox.get(2, 0) >= 10  # not all piled on the roomiest mailbox
+    times = {mb: [r["sent_at"] for r in sent_rows(conn) if r["mailbox_id"] == mb] for mb in (1, 2)}
+    for mb, ts in times.items():  # each mailbox still respects its own pacing gap
+        assert all(timeutil.seconds_between(a, b) >= policies.pacing_gap_s(100 if mb == 1 else 90)
+                   for a, b in zip(ts, ts[1:]))
+
+
+def test_followups_stay_on_their_mailbox(settings):
+    conn = make_db(settings, mailboxes=2, limit=100)
+    conn.execute("UPDATE mailboxes SET start_limit=5, max_limit=5 WHERE id=2")
+    ids = [make_contact(conn, status="first_sent", step=1, next_action="send_2", mailbox_id=2) for _ in range(8)]
+    tick(conn, settings, 13)
+    rows = sent_rows(conn)
+    assert len(rows) == 5 and {r["mailbox_id"] for r in rows} == {2}
+    assert len({e["contact_id"] for e in deferred(conn, "mailbox_capacity")} & set(ids)) == 3
