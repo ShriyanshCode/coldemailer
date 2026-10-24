@@ -8,7 +8,7 @@ import os
 import re
 
 from .. import content
-from ..config import SEGMENTS
+from ..config import ROOT, SEGMENTS
 
 INDUSTRY_TOPIC = {
     "SaaS": "reducing churn during onboarding",
@@ -93,7 +93,11 @@ def render(tpl, contact, mailbox_address: str, mailbox_id: int = 1, campaign_id:
     return _fill(tpl["subject"], values), _fill(tpl["body"], values), headers
 
 
-def load_seed_file(conn, path: str = "data/templates.seed.json") -> int:
+SEED_FILE = ROOT / "data" / "templates.seed.json"
+
+
+def load_seed_file(conn, path=None) -> int:
+    path = path or SEED_FILE
     if not os.path.exists(path):
         return 0
     with open(path, encoding="utf-8") as f:
@@ -104,7 +108,8 @@ def load_seed_file(conn, path: str = "data/templates.seed.json") -> int:
     return len(items)
 
 
-def export_seed_file(conn, path: str = "data/templates.seed.json") -> int:
+def export_seed_file(conn, path=None) -> int:
+    path = path or SEED_FILE
     rows = conn.execute(
         "SELECT segment, step, variant, subject, body, source, created_at FROM templates "
         "WHERE source != 'static' ORDER BY segment, step, variant").fetchall()

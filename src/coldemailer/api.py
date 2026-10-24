@@ -2,17 +2,15 @@
 (resolve, resume, suppress) are single transactions, and the engine never revives a contact they stopped."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import actions, clock, db, report, runner, verify
-from .config import Settings, load_settings
+from .config import ROOT, Settings, load_settings
 
-WEB_DIR = Path(__file__).resolve().parents[2] / "web"
+WEB_DIR = ROOT / "web"
 
 
 class AdvanceBody(BaseModel):

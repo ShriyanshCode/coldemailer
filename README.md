@@ -6,7 +6,7 @@ A cold-email outreach engine that never loses track of a contact. It runs a firs
 
 ## Quick start
 
-You need Python 3.12. Nothing else (no Node, no Docker, no database server).
+You need Python 3.12, or Docker. Nothing else (no Node, no database server). Run everything from the cloned folder; default paths resolve from there.
 
 **macOS / Linux**
 
@@ -32,7 +32,18 @@ python -m coldemailer report
 python -m coldemailer serve
 ```
 
-Run the tests with `pytest -q` (87 tests, about 7 seconds).
+**Docker (one command)**
+
+```bash
+cp .env.example .env                        # optional: add an OpenRouter key
+docker compose up --build                   # seeds 10,000 contacts on first start, dashboard at http://localhost:8000
+docker compose exec app python -m coldemailer advance --days 14
+docker compose exec app python -m coldemailer report
+```
+
+The database lives in the `state` volume, so it survives restarts; `docker compose down -v` wipes it and the next `up` seeds again. Set `PORT=8080` if 8000 is taken. The dashboard's clock button advances time too.
+
+Run the tests with `pytest -q` (87 tests, about 7 seconds), or `docker compose exec app pytest -q`.
 
 ## Commands
 
@@ -265,7 +276,6 @@ This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14
 - **Next:**
   - per-contact AI openers for high-value segments only, on a budget;
   - A/B results by template variant (the data is already in `sends`);
-  - Docker Compose;
   - multi-campaign support (`campaign_id` is already threaded through the keys);
   - a real ESP adapter behind the same `send(idempotency_key, …)` interface.
 

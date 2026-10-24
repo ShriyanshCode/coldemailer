@@ -247,7 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = tpl.add_parser("warm", help="generate missing segment templates with OpenRouter")
     s.set_defaults(func=cmd_templates_warm)
     s = tpl.add_parser("export", help="write generated templates to the committed seed file")
-    s.add_argument("--path", default="data/templates.seed.json")
+    s.add_argument("--path", default=None, help="default: data/templates.seed.json in the repository")
     s.set_defaults(func=cmd_templates_export)
 
     s = sub.add_parser("report", help="counts, due, rates (IST days)")

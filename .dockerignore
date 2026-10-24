@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+data/*.db
+data/*.db-*
+**/__pycache__
+**/*.pyc
+.pytest_cache
+*.egg-info
+build
+.superpowers
+.playwright-mcp

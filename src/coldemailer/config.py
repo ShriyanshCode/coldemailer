@@ -3,8 +3,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 from dotenv import load_dotenv
+
+# The repository root (the package is installed editable from src/). Default paths hang off it, so
+# commands work the same from any working directory.
+ROOT = Path(__file__).resolve().parents[2]
 
 SEGMENTS = ("SaaS", "Fintech", "Retail", "Healthcare", "Logistics")
 
@@ -96,4 +101,6 @@ def load_settings(**overrides) -> Settings:
     models = os.getenv("OPENROUTER_MODELS", "").strip()
     if models:
         env["openrouter_models"] = tuple(m.strip() for m in models.split(",") if m.strip())
+    db_path = Path(env.get("db_path", Settings.db_path))
+    env["db_path"] = str(db_path if db_path.is_absolute() else ROOT / db_path)
     return replace(Settings(), **{**env, **overrides})
