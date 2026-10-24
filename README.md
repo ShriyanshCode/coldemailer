@@ -222,6 +222,20 @@ Run on my machine (Windows 11, Intel 12-thread laptop CPU, Python 3.12.7, SQLite
 - Reply labels: 1,738 by rules and 103 by the LLM, with **97.6% agreement** with the simulator's ground truth (951 checked).
 - There were 121 LLM calls: 95 succeeded and 26 got a 429. A 429 puts the model on cool-down instead of being retried, and every success came from the fallback model because Gemma 4 was rate-limited throughout.
 
+### 100,000 contacts, 14 simulated days (scale check, no AI)
+
+This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14 --no-ai`. It was measured before the final review fixes, so its reply rate uses the earlier definition (any non-OOO reply). Full report: [`docs/results/run-100k.md`](docs/results/run-100k.md).
+
+| Phase | Wall time |
+|---|---|
+| Seed 100,000 contacts with history (133,537 history sends) | 33 s |
+| Advance 14 days (336 hourly cycles) | 8 min 7 s (~35 s per simulated day) |
+| `verify` (12 checks) | 4.0 s, **all pass** |
+
+- 29,504 emails were sent. Reply rate was 16.9%, bounce rate 2.0%, and classifier agreement with ground truth 98.4%.
+- All 40,000 `new` contacts are still unsent after 14 days, and that's by design. With 20 warming mailboxes (at most 4,000 sends a day), the 60,000 contacts already in the sequence use all the capacity, and follow-ups always go before first emails. The fix is more mailboxes, not more code: `mailbox_count` in `config.py`.
+- The cost per cycle grows with the number of due-but-deferred contacts, because each one is re-checked every hour. That's fine at this size. At millions, I'd defer by moving `next_action_at` to the next moment a mailbox has room, rather than re-checking every hour.
+
 ## Tests
 
 `pytest -q` runs 77 tests in about 7 seconds:
