@@ -381,6 +381,78 @@ def events(conn, group: str | None = None, type_: str | None = None, q: str | No
             "range": {"from": day_from, "to": day_to}}
 
 
+DEFER_HELP = {
+    "outside_window": "It was outside 09:00-18:00 in the prospect's timezone. The send moves to their next window.",
+    "domain_cap": "This company's domain already got its daily cap of emails, so the send waits for tomorrow.",
+    "mailbox_capacity": "No mailbox this send could use had warm-up room left today. Follow-ups stay on the mailbox "
+                        "that sent the first email, so a young mailbox that is full holds its follow-ups until "
+                        "tomorrow's higher limit, even when other mailboxes have room.",
+    "pacing": "The mailbox sent recently and must leave a gap between emails, so the send waits for the next slot.",
+    "mailbox_paused": "Every mailbox that could send was paused. Resume one from the Mailboxes tab.",
+}
+
+
+def _source_text(source: str | None) -> str | None:
+    if not source:
+        return None
+    if source.startswith("llm:"):
+        return f"AI ({source[4:]})"
+    return {"rule": "Rules", "fallback": "Fallback (AI unavailable)", "human": "Operator",
+            "static": "Static template"}.get(source, source)
+
+
+def event_detail(conn, settings, event_id: int) -> dict | None:
+    """Everything behind one log row: the email that was sent, its attempts, any reply and how it
+    was classified, and for deferrals the mailbox capacity that day."""
+    e = conn.execute("SELECT e.*, c.email, c.company, c.first_name, c.last_name FROM events e "
+                     "LEFT JOIN contacts c ON c.id=e.contact_id WHERE e.id=?", (event_id,)).fetchone()
+    if e is None:
+        return None
+    d = json.loads(e["detail"]) if e["detail"] else {}
+    out = {"id": e["id"], "type": e["type"], "label": EVENT_LABELS.get(e["type"], e["type"]),
+           "at_ist": timeutil.fmt_ist(e["occurred_at"]), "text": describe(e["type"], d), "detail": d,
+           "contact": {"id": e["contact_id"], "email": e["email"], "company": e["company"],
+                       "name": f"{e['first_name'] or ''} {e['last_name'] or ''}".strip()} if e["contact_id"] else None,
+           "email": None, "attempts": [], "replies": [], "capacity": None,
+           "explain": DEFER_HELP.get(d.get("reason")) if e["type"] == "deferred" else None}
+    if e["send_id"]:
+        s = conn.execute("SELECT s.*, m.address mailbox, t.source template_source, t.segment, t.variant "
+                         "FROM sends s LEFT JOIN mailboxes m ON m.id=s.mailbox_id "
+                         "LEFT JOIN templates t ON t.id=s.template_id WHERE s.id=?", (e["send_id"],)).fetchone()
+        if s:
+            out["email"] = {"step": lifecycle.STEP_NAMES[s["step"] - 1], "subject": s["subject"], "body": s["body"],
+                            "mailbox": s["mailbox"], "state": s["state"], "sent_at_ist": timeutil.fmt_ist(s["sent_at"]),
+                            "imported": s["source"] == "import",
+                            "template": _source_text(s["template_source"]),
+                            "template_ref": f"{s['segment']} · variant {s['variant']}" if s["segment"] else None}
+            out["attempts"] = [{"attempt": a["attempt"], "result": a["result"], "smtp_code": a["smtp_code"],
+                                "at_ist": timeutil.fmt_ist(a["at"])} for a in conn.execute(
+                "SELECT * FROM send_attempts WHERE send_id=? ORDER BY attempt", (e["send_id"],))]
+            out["replies"] = [{"body": r["body"], "received_at_ist": timeutil.fmt_ist(r["received_at"]),
+                               "label": LABEL_TEXT.get(r["classification"], r["classification"]),
+                               "by": _source_text(r["classified_by"]),
+                               "ai": bool(r["classified_by"] and r["classified_by"].startswith("llm:"))}
+                              for r in conn.execute("SELECT * FROM replies WHERE send_id=? ORDER BY received_at",
+                                                    (e["send_id"],))]
+    if e["type"] == "deferred" and d.get("reason") in ("mailbox_capacity", "mailbox_paused"):
+        # Deferrals are stamped at the end of their cycle, so the day is the one just before that instant.
+        # Usage is as of now (end of that day if it's past); paused state is the current one.
+        day = timeutil.ist_day(timeutil.add(e["occurred_at"], seconds=-1))
+        used = {r["mailbox_id"]: r["sent"] for r in conn.execute(
+            "SELECT mailbox_id, sent FROM mailbox_daily WHERE day=?", (day,))}
+        mbs = conn.execute("SELECT * FROM mailboxes ORDER BY id").fetchall()
+        active = [m for m in mbs if not m["paused"]]
+        own = conn.execute("SELECT m.* FROM contacts c JOIN mailboxes m ON m.id=c.mailbox_id WHERE c.id=?",
+                           (e["contact_id"],)).fetchone() if (d.get("step") or 1) > 1 else None
+        out["capacity"] = {"day": day, "sent": sum(used.get(m["id"], 0) for m in active),
+                           "limit": sum(policies.warmup_limit(m, day) for m in active),
+                           "mailboxes": len(mbs), "paused_now": len(mbs) - len(active),
+                           "own": {"address": own["address"], "sent": used.get(own["id"], 0),
+                                   "limit": policies.warmup_limit(own, day), "paused": bool(own["paused"])}
+                           if own else None}
+    return out
+
+
 def _ago(a: str, b: str) -> str:
     secs = max(0, int(timeutil.seconds_between(a, b)))
     d, h = secs // 86400, secs % 86400 // 3600

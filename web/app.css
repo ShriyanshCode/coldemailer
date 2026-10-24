@@ -103,6 +103,10 @@ aside.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-w
 .tl-body { padding: 10px 12px 12px; border-top: 1px solid var(--row); background: var(--bg); display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
 .kv { display: grid; grid-template-columns: 110px 1fr; gap: 8px; }
 .prose { color: var(--ink2); line-height: 1.55; white-space: pre-line; }
+.log-detail { padding: 12px 16px 14px 44px; border-bottom: 1px solid var(--row); font-size: 13px; gap: 12px; }
+.log-section { display: flex; flex-direction: column; gap: 6px; }
+.log-h { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.log-mail { background: var(--card); border: 1px solid var(--line2); border-radius: 8px; padding: 10px 12px; max-width: 760px; }
 
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--card); padding: 10px 16px;
   border-radius: 8px; z-index: 50; font-size: 13px; }

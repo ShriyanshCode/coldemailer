@@ -86,6 +86,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                day_from: str | None = None, day_to: str | None = None, before: str | None = None, limit: int = 40):
         return report.events(c, group, type, q, day_from, day_to, max(1, min(limit, 200)), before)
 
+    @app.get("/api/events/{event_id}")
+    def event(event_id: int, c=Depends(conn)):
+        initialised(c)
+        d = report.event_detail(c, settings, event_id)
+        if d is None:
+            raise HTTPException(404, "event not found")
+        return d
+
     @app.get("/api/reviews")
     def reviews(state: str = "open", c=Depends(conn)):
         return report.reviews(c, state)

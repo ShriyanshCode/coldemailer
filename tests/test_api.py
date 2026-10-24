@@ -125,3 +125,32 @@ def test_contacts_due_and_ooo_filters(api, seeded):
     tomorrow = api.get("/api/contacts", params={"due": "tomorrow", "size": 200}).json()
     assert all(r["next_action_at"] >= today_end for r in tomorrow["rows"])
     assert api.get("/api/contacts", params={"ooo": "yes"}).json()["total"] == 0  # seed has no OOO pushes yet
+
+
+def test_event_detail_sent_and_reply(api, seeded):
+    conn = db.connect(seeded.db_path)
+    sent = conn.execute("SELECT id, send_id FROM events WHERE type='sent' LIMIT 1").fetchone()
+    d = api.get(f"/api/events/{sent['id']}").json()
+    assert d["email"]["subject"] and d["email"]["body"] and d["email"]["mailbox"] and d["contact"]["email"]
+    reply = conn.execute("SELECT e.id, r.body FROM events e JOIN replies r ON r.send_id=e.send_id "
+                         "WHERE e.type='replied' LIMIT 1").fetchone()
+    d = api.get(f"/api/events/{reply['id']}").json()
+    assert d["replies"][0]["body"] == reply["body"] and d["replies"][0]["label"]
+    assert api.get("/api/events/999999").status_code == 404
+
+
+def test_event_detail_capacity_deferral(api, seeded):
+    from coldemailer import engine
+    conn = db.connect(seeded.db_path)
+    now = clock.now(conn)
+    with db.tx(conn):
+        eid = engine.event(conn, "deferred", now, 1, reason="mailbox_capacity", step=1)
+    d = api.get(f"/api/events/{eid}").json()
+    assert "warm-up room" in d["explain"]
+    assert d["capacity"]["mailboxes"] == seeded.mailbox_count and d["capacity"]["limit"] > 0
+    assert d["capacity"]["own"] is None  # a first email has no assigned mailbox yet
+    cid = conn.execute("SELECT id FROM contacts WHERE mailbox_id IS NOT NULL LIMIT 1").fetchone()[0]
+    with db.tx(conn):
+        eid = engine.event(conn, "deferred", now, cid, reason="mailbox_capacity", step=2)
+    own = api.get(f"/api/events/{eid}").json()["capacity"]["own"]
+    assert own["address"] and own["limit"] >= 0
