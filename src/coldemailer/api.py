@@ -106,6 +106,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def ai(c=Depends(conn)):
         return report.ai_usage(c, settings)
 
+    @app.get("/api/ai/list/{kind}")
+    def ai_list(kind: str, offset: int = 0, limit: int = 50, c=Depends(conn)):
+        initialised(c)
+        d = report.ai_list(c, settings, kind, max(0, offset), max(1, min(limit, 200)))
+        if d is None:
+            raise HTTPException(404, "unknown list")
+        return d
+
     @app.get("/api/templates")
     def templates(c=Depends(conn)):
         return report.templates_grid(c)

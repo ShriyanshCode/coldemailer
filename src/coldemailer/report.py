@@ -539,12 +539,81 @@ def ai_usage(conn, settings) -> dict:
             "fallback_static": _one(conn, "SELECT COUNT(*) FROM events WHERE type='ai_fallback'")
                                + _one(conn, "SELECT COUNT(*) FROM replies WHERE classified_by='fallback'"),
             "template_cache_hit_rate": llm_sends / engine_sends if engine_sends else None,
+            "ai_sends": llm_sends,
+            "ai_labels": _one(conn, "SELECT COUNT(*) FROM replies WHERE classified_by LIKE 'llm:%'"),
             "avg_latency_ms": sum(lat) / ok_total if ok_total else None,
         },
         "models": [{"model": r["model"], "calls": r["calls"], "ok": r["ok"] or 0, "rate_limited": r["rl"] or 0,
                     "retries": r["retries"] or 0, "errors": r["errors"] or 0,
                     "avg_latency_ms": round(r["lat"]) if r["lat"] else None} for r in rows],
     }
+
+
+AI_LISTS = {
+    "calls": "Every OpenRouter request, newest first.",
+    "successes": "Requests that returned a usable answer.",
+    "rate_limited": "Requests refused with 429. The model went on cool-down and the next one in the chain was tried.",
+    "retries": "Requests that repeated an earlier failed one (batch jobs only; cycles never wait).",
+    "fallback_next_model": "Successful answers from a model after the first in the chain.",
+    "fallback_static": "Where AI wasn't available: the static template or the keyword classifier was used instead.",
+    "ai_sends": "Emails sent with an AI-written template, newest first.",
+    "ai_labels": "Replies the LLM labelled because the rules couldn't settle them.",
+    "latency": "Successful requests, slowest first.",
+}
+
+
+def _call_row(r) -> dict:
+    status = {"ok": "OK", "rate_limited": "429 rate limited", "error": f"error {r['http_status'] or ''}".strip()}
+    return {"at_ist": timeutil.fmt_ist(r["at"]), "title": r["model"],
+            "sub": f"{r['purpose'].title()} · {status.get(r['status'], r['status'])}"
+                   + (" · retry" if r["retry_of"] else ""),
+            "note": f"{r['latency_ms'] / 1000:.1f}s" if r["latency_ms"] else None, "contact_id": None}
+
+
+def ai_list(conn, settings, kind: str, offset: int = 0, limit: int = 50) -> dict | None:
+    """The rows behind one AI KPI card: where AI was (or couldn't be) used."""
+    if kind not in AI_LISTS:
+        return None
+    calls = {"calls": "1", "successes": "status='ok'", "rate_limited": "status='rate_limited'",
+             "retries": "retry_of IS NOT NULL", "latency": "status='ok' AND latency_ms IS NOT NULL"}
+    first = settings.openrouter_models[0] if settings.openrouter_models else ""
+    if kind in calls or kind == "fallback_next_model":
+        where, args = (calls[kind], ()) if kind in calls else ("status='ok' AND model != ?", (first,))
+        order = "latency_ms DESC" if kind == "latency" else "at DESC, id DESC"
+        total = _one(conn, f"SELECT COUNT(*) FROM llm_calls WHERE {where}", args)
+        rows = [_call_row(r) for r in conn.execute(
+            f"SELECT * FROM llm_calls WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?", (*args, limit, offset))]
+    elif kind == "ai_sends":
+        q = ("FROM sends s JOIN templates t ON t.id=s.template_id JOIN contacts c ON c.id=s.contact_id "
+             "WHERE s.source='engine' AND t.source LIKE 'llm:%'")
+        total = _one(conn, f"SELECT COUNT(*) {q}")
+        rows = [{"at_ist": timeutil.fmt_ist(r["sent_at"] or r["claimed_at"]), "title": r["email"],
+                 "sub": f"{lifecycle.STEP_NAMES[r['step'] - 1]} · {r['segment']} variant {r['variant']} · {r['subject']}",
+                 "note": r["tsource"][4:], "contact_id": r["contact_id"]} for r in conn.execute(
+            f"SELECT s.*, c.email, t.segment, t.variant, t.source tsource {q} "
+            "ORDER BY COALESCE(s.sent_at, s.claimed_at) DESC, s.id DESC LIMIT ? OFFSET ?", (limit, offset))]
+    elif kind == "ai_labels":
+        q = "FROM replies r JOIN contacts c ON c.id=r.contact_id WHERE r.classified_by LIKE 'llm:%'"
+        total = _one(conn, f"SELECT COUNT(*) {q}")
+        rows = [{"at_ist": timeutil.fmt_ist(r["classified_at"] or r["received_at"]), "title": r["email"],
+                 "sub": f"{LABEL_TEXT.get(r['classification'], r['classification'])}: “{r['body'][:90]}”",
+                 "note": r["classified_by"][4:], "contact_id": r["contact_id"]} for r in conn.execute(
+            f"SELECT r.*, c.email {q} ORDER BY r.classified_at DESC, r.id DESC LIMIT ? OFFSET ?", (limit, offset))]
+    else:  # fallback_static: whole-chain failures plus replies the keyword fallback labelled
+        merged = [{"at": e["occurred_at"], "title": "All models failed",
+                   "sub": f"{(json.loads(e['detail'] or '{}').get('purpose') or '').title()} · "
+                          f"{json.loads(e['detail'] or '{}').get('reason', '')}", "note": None, "contact_id": None}
+                  for e in conn.execute("SELECT * FROM events WHERE type='ai_fallback'")]
+        merged += [{"at": r["classified_at"] or r["received_at"], "title": r["email"],
+                    "sub": f"Keyword label {LABEL_TEXT.get(r['classification'], r['classification'])}: “{r['body'][:90]}”",
+                    "note": "fallback", "contact_id": r["contact_id"]} for r in conn.execute(
+            "SELECT r.*, c.email FROM replies r JOIN contacts c ON c.id=r.contact_id WHERE r.classified_by='fallback'")]
+        merged.sort(key=lambda x: x["at"], reverse=True)
+        total = len(merged)
+        rows = [{**{k: v for k, v in m.items() if k != "at"}, "at_ist": timeutil.fmt_ist(m["at"])}
+                for m in merged[offset:offset + limit]]
+    return {"kind": kind, "description": AI_LISTS[kind], "total": total, "rows": rows,
+            "next": offset + limit if offset + limit < total else None}
 
 
 def templates_grid(conn) -> dict:

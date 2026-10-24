@@ -1,17 +1,49 @@
 // AI & Templates: OpenRouter usage, per-model table and the template cache grid.
-import { html, useState, useFetch, StateBox, fmt, pct, STEP_NAMES } from '../ui.js';
+// Each KPI card opens the rows behind it, so you can see exactly where AI was (or wasn't) used.
+import { get } from '../api.js';
+import { html, useState, useEffect, useApp, useFetch, StateBox, fmt, pct, STEP_NAMES } from '../ui.js';
+
+function UsageList({ kind, label, onClose }) {
+  const { openContact, rev } = useApp();
+  const [d, setD] = useState(null);
+  const [error, setError] = useState(null);
+  useEffect(() => { setD(null); get(`ai/list/${kind}`).then(setD).catch(e => setError(e.message)); }, [kind, rev]);
+  const more = () => get(`ai/list/${kind}`, { offset: d.next }).then(n => setD({ ...n, rows: [...d.rows, ...n.rows] }));
+  return html`<section class="card flush">
+    <div class="row" style=${{ padding: '14px 18px', alignItems: 'start', gap: 12 }}>
+      <div><h2 style=${{ margin: 0 }}>${label} <span class="mute2" style=${{ fontWeight: 400 }}>· ${d ? fmt(d.total) : '…'}</span></h2>
+        <div class="mute" style=${{ fontSize: 12, marginTop: 4 }}>${d?.description}</div></div>
+      <button class="x" onClick=${onClose}>×</button></div>
+    ${error && html`<div class="state">${error}</div>`}
+    ${d && d.rows.length === 0 && html`<div class="state mute2">Nothing here yet</div>`}
+    ${d && d.rows.map(r => html`<div class=${'trow' + (r.contact_id ? ' click' : '')} onClick=${() => r.contact_id && openContact(r.contact_id)}
+      style=${{ gridTemplateColumns: '110px 1.2fr 2.6fr auto' }}>
+      <span class="mono mute" style=${{ fontSize: 12 }}>${r.at_ist}</span>
+      <span class="mono ellipsis" style=${{ fontSize: 12 }}>${r.title}</span>
+      <span class="ink2 ellipsis">${r.sub}</span>
+      <span class="mono mute2" style=${{ fontSize: 11 }}>${r.note}</span></div>`)}
+    ${d?.next && html`<div style=${{ padding: 12, textAlign: 'center' }}><button class="btn" onClick=${more}>Load more</button></div>`}
+  </section>`;
+}
 
 function Usage({ d }) {
   const t = d.totals;
-  const kpis = [['Calls', fmt(t.calls)], ['Successes', fmt(t.successes)], ['429 errors', fmt(t.rate_limited)],
-    ['Retries', fmt(t.retries)], ['Fallback to next model', fmt(t.fallback_next_model)], ['Fallback to static / rules', fmt(t.fallback_static)],
-    ['Template cache hits', pct(t.template_cache_hit_rate, 0)], ['Avg latency', t.avg_latency_ms ? `${(t.avg_latency_ms / 1000).toFixed(1)}s` : '—']];
+  const [open, setOpen] = useState(null);
+  const kpis = [['calls', 'Calls', fmt(t.calls)], ['successes', 'Successes', fmt(t.successes)],
+    ['rate_limited', '429 errors', fmt(t.rate_limited)], ['retries', 'Retries', fmt(t.retries)],
+    ['fallback_next_model', 'Fallback to next model', fmt(t.fallback_next_model)],
+    ['fallback_static', 'Fallback to static / rules', fmt(t.fallback_static)],
+    ['ai_sends', 'Emails from AI templates', fmt(t.ai_sends)], ['ai_labels', 'Replies labelled by AI', fmt(t.ai_labels)],
+    ['ai_sends', 'Template cache hits', pct(t.template_cache_hit_rate, 0)],
+    ['latency', 'Avg latency', t.avg_latency_ms ? `${(t.avg_latency_ms / 1000).toFixed(1)}s` : '—']];
   const cols = '2.4fr repeat(6, 1fr)';
   return html`
     ${!d.configured && html`<div class="card note" style=${{ padding: '12px 16px', marginTop: 0 }}>No OpenRouter key configured: emails use
       the committed templates and replies use the rule classifier. Add OPENROUTER_API_KEY to .env to enable live calls.</div>`}
-    <div class="grid g-kpi">${kpis.map(([l, v]) => html`<div class="card" style=${{ padding: '14px 16px' }}>
-      <div class="mute" style=${{ fontSize: 12 }}>${l}</div><div class="mono" style=${{ fontSize: 22, fontWeight: 500, marginTop: 4 }}>${v}</div></div>`)}</div>
+    <div class="grid g-kpi five">${kpis.map(([k, l, v]) => html`<button class=${'card kpi-btn' + (open?.label === l ? ' on' : '')}
+      onClick=${() => setOpen(open?.label === l ? null : { kind: k, label: l })}>
+      <div class="mute" style=${{ fontSize: 12 }}>${l}</div><div class="mono" style=${{ fontSize: 22, fontWeight: 500, marginTop: 4 }}>${v}</div></button>`)}</div>
+    ${open && html`<${UsageList} kind=${open.kind} label=${open.label} onClose=${() => setOpen(null)} />`}
     <section class="card flush"><div class="table" style=${{ minWidth: 760, padding: '6px 20px 8px' }}>
       <div class="thead" style=${{ gridTemplateColumns: cols, padding: '12px 0 8px', background: 'none' }}>
         <span>Model</span><span>Calls</span><span>Success</span><span>429s</span><span>Retries</span><span>Errors</span><span>Avg latency</span></div>

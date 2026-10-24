@@ -32,7 +32,7 @@ python -m coldemailer report
 python -m coldemailer serve
 ```
 
-Run the tests with `pytest -q` (81 tests, about 7 seconds).
+Run the tests with `pytest -q` (82 tests, about 7 seconds).
 
 ## Commands
 
@@ -50,7 +50,7 @@ Run the tests with `pytest -q` (81 tests, about 7 seconds).
 | `templates warm` / `templates export` | Generates the per-segment templates with OpenRouter / writes them to `data/templates.seed.json`. |
 | `serve [--port 8000]` | The API (`/docs` for the schema) and the dashboard. |
 
-The dashboard has six tabs. **Dashboard** shows the KPIs, funnel, reply labels, sends per hour, deferrals, due-next, suppression, health and campaign settings. **Contacts** is every contact, filterable and paged. **Review** holds the human queue. **Mailboxes** shows warm-up ramps and auto-pauses. **AI & Templates** shows calls, 429s, fallbacks and the template cache. **Logs** has every event with filters and live tail; click a row to see the email that was sent (and whether AI wrote it), its delivery attempts, any reply with who classified it, or why a send was deferred. The clock button in the header advances time from the browser.
+The dashboard has six tabs. **Dashboard** shows the KPIs, funnel, reply labels, sends per hour, deferrals, due-next, suppression, health and campaign settings. **Contacts** is every contact, filterable and paged. **Review** holds the human queue. **Mailboxes** shows warm-up ramps and auto-pauses. **AI & Templates** shows calls, 429s, fallbacks and the template cache; click any number to see the rows behind it, such as which emails used an AI-written template or which replies the LLM labelled. **Logs** has every event with filters and live tail; click a row to see the email that was sent (and whether AI wrote it), its delivery attempts, any reply with who classified it, or why a send was deferred. The clock button in the header advances time from the browser.
 
 ## How it works
 
@@ -239,7 +239,7 @@ This is a separate scale check: `python scripts/full_run.py --n 100000 --days 14
 
 ## Tests
 
-`pytest -q` runs 81 tests in about 7 seconds:
+`pytest -q` runs 82 tests in about 7 seconds:
 
 - **Lifecycle:** a full sequence through to deactivation, a reply stopping it, out-of-office pushing it, hard bounces, unsubscribes and complaints, soft-bounce retries through to review, and policy rejections.
 - **Exactly-once:** running the same clock twice, running the same interval twice, a crash after the provider accepted, a crash before it, a reply landing in the same cycle a follow-up is due, the run lock, the clock refusing to go backwards.

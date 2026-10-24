@@ -154,3 +154,17 @@ def test_event_detail_capacity_deferral(api, seeded):
         eid = engine.event(conn, "deferred", now, cid, reason="mailbox_capacity", step=2)
     own = api.get(f"/api/events/{eid}").json()["capacity"]["own"]
     assert own["address"] and own["limit"] >= 0
+
+
+def test_ai_lists(api, seeded):
+    conn = db.connect(seeded.db_path)
+    with db.tx(conn):
+        conn.execute("INSERT INTO llm_calls(model, purpose, status, http_status, latency_ms, at) "
+                     "VALUES ('m:free', 'classify', 'rate_limited', 429, 300, ?)", (clock.now(conn),))
+    d = api.get("/api/ai/list/rate_limited").json()
+    assert d["total"] == 1 and d["rows"][0]["title"] == "m:free" and "429" in d["rows"][0]["sub"]
+    for kind in ("calls", "successes", "retries", "fallback_next_model", "fallback_static", "ai_sends", "ai_labels", "latency"):
+        assert api.get(f"/api/ai/list/{kind}").status_code == 200
+    assert api.get("/api/ai/list/nope").status_code == 404
+    totals = api.get("/api/ai").json()["totals"]
+    assert "ai_sends" in totals and "ai_labels" in totals
